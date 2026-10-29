@@ -171,7 +171,7 @@ void setup() {
   armReceive();
   g_lastSampleMs = millis();
   g_lastTelemMs  = millis();
-  Serial.println(F("[payload] Running (1 Hz sample, 5 s TELEM)"));
+  Serial.println(F("[payload] Running (1 Hz sample + TELEM)"));
 }
 
 void loop() {
@@ -183,7 +183,11 @@ void loop() {
   if (now - g_lastSampleMs >= HAB_SAMPLE_INTERVAL_MS) {
     g_lastSampleMs = now;
     habSensorsReadSample(g_latest, g_gpsTime, sizeof(g_gpsTime));
-    habSensorsLogSample(g_latest, g_gpsTime);
+    // Skip blank-seq SD row when a TELEM TX will log the same sample with seq.
+    const bool telemDue = (now - g_lastTelemMs >= HAB_TELEM_INTERVAL_MS);
+    if (!telemDue) {
+      habSensorsLogSample(g_latest, g_gpsTime);
+    }
     updateOled();
   }
 

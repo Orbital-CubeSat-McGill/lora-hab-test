@@ -53,7 +53,7 @@
 
 // Cadence (payload)
 #ifndef HAB_TELEM_INTERVAL_MS
-  #define HAB_TELEM_INTERVAL_MS 5000UL
+  #define HAB_TELEM_INTERVAL_MS 1000UL  // match onboard 1 Hz sample / SD log
 #endif
 #ifndef HAB_SAMPLE_INTERVAL_MS
   #define HAB_SAMPLE_INTERVAL_MS 1000UL

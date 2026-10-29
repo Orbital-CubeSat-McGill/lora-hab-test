@@ -2,7 +2,7 @@
 
 Dual-firmware PlatformIO project for two **Heltec WiFi LoRa 32 V3** nodes:
 
-- **Payload** — logs IMU tilt, magnetometer heading, and GPS to microSD at 1 Hz; broadcasts telemetry every 5 s over LoRa; answers ground PINGs with ACK.
+- **Payload** — logs IMU tilt, magnetometer heading, and GPS to microSD at 1 Hz; broadcasts telemetry every 1 s over LoRa; answers ground PINGs with ACK.
 - **Ground** — receives telemetry, shows last packet on the OLED, pretty-prints + CSV over USB; can PING the payload (PRG button or serial `PING`).
 
 Starting PHY (edit before reflashing both boards): **915.0 MHz, SF10, 125 kHz, CR 4/5, 22 dBm**.
@@ -97,7 +97,7 @@ OTA packet `ver=2`: TELEM/ACK carry the full sample (incl. GPS time `HH:MM:SS`).
 
 1. Same `radio_config.h` on both boards; antennas attached.
 2. Flash payload + ground; open ground serial (or `serial_logger.py`).
-3. Confirm TELEM every ~5 s with RSSI/SNR.
+3. Confirm TELEM every ~1 s with RSSI/SNR.
 4. Send `PING` / press PRG → ACK with RTT (or TIMEOUT if payload off).
 5. Confirm payload `<session>/flight.csv` grows at ~1 Hz when SD present (new folder each reset).
 6. Unplug magnetometer, reboot payload → warning, no hang, heading `n/a`.
