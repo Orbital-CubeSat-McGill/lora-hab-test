@@ -77,6 +77,8 @@ int habRadioApplyConfig(SX1262& radio) {
 }
 
 void habRadioPrintConfig(Print& out) {
+  char slug[40];
+  habRadioPhySlug(slug, sizeof(slug));
   out.printf("LoRa cfg: %.3f MHz  SF%d  BW=%.0f kHz  CR=4/%d  P=%d dBm  sync=0x%02X\n",
              LORA_FREQUENCY_HZ / 1e6f,
              LORA_SF,
@@ -84,4 +86,8 @@ void habRadioPrintConfig(Print& out) {
              LORA_CR,
              LORA_TX_POWER_DBM,
              LORA_SYNC_WORD);
+  // Machine line for host logger session naming / meta.
+  out.printf("PHY,sf=%d,bw_khz=%.0f,cr=%d,pwr_dbm=%d,freq_hz=%lu,slug=%s\n",
+             LORA_SF, (double)LORA_BW_KHZ, LORA_CR, LORA_TX_POWER_DBM,
+             (unsigned long)LORA_FREQUENCY_HZ, slug);
 }

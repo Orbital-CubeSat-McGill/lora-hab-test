@@ -193,7 +193,7 @@ void habPrettyPrintAck(Print& out, const HabPacket& pkt, float rssi, float snr,
   habSampleFormatGpsTime(s, gpsTime, sizeof(gpsTime));
 
   out.println(F("---- ACK ------"));
-  out.printf("seq=%u  RTT=%ld ms  RSSI=%.1f  SNR=%.1f\n", pkt.seq,
+  out.printf("seq=%u  acked=1  RTT=%ld ms  RSSI=%.1f  SNR=%.1f\n", pkt.seq,
              (long)rtt_ms, rssi, snr);
   out.printf("ts_ms=%lu  gps_time=%s\n", (unsigned long)s.ts_ms,
              gpsTime[0] ? gpsTime : "n/a");
@@ -215,8 +215,8 @@ void habPrettyPrintAck(Print& out, const HabPacket& pkt, float rssi, float snr,
 }
 
 void habPrettyPrintPingTimeout(Print& out, uint16_t seq, uint32_t waited_ms) {
-  out.println(F("---- PING TIMEOUT ----"));
-  out.printf("seq=%u  waited=%lu ms  (no ACK)\n", seq,
+  out.println(F("---- PING NO-ACK ----"));
+  out.printf("seq=%u  acked=0  waited=%lu ms\n", seq,
              (unsigned long)waited_ms);
   out.println(F("----------------------"));
 }
@@ -315,9 +315,9 @@ void habCsvLineGroundFlight(Print& out, const HabPacket& pkt, float rssi,
 }
 
 void habCsvHeaderGroundPing(Print& out) {
-  out.println(F("PING,rx_utc,event,seq,rtt_ms,rssi_dbm,snr_db,ts_ms,gps_time,"
-                "lat,lon,alt_m,tilt_deg,pitch_deg,roll_deg,heading_deg,sats,"
-                "gps_ok,imu_ok,mag_ok"));
+  out.println(F("PING,rx_utc,event,acked,seq,rtt_ms,rssi_dbm,snr_db,ts_ms,"
+                "gps_time,lat,lon,alt_m,tilt_deg,pitch_deg,roll_deg,"
+                "heading_deg,sats,gps_ok,imu_ok,mag_ok"));
 }
 
 void habCsvLineGroundPingAck(Print& out, const HabPacket& pkt, float rssi,
@@ -332,7 +332,7 @@ void habCsvLineGroundPingAck(Print& out, const HabPacket& pkt, float rssi,
 
   out.print(F("PING,"));
   out.print(rx_utc ? rx_utc : "");
-  out.print(F(",ack,"));
+  out.print(F(",ack,1,"));
   out.printf("%u,", (unsigned)pkt.seq);
   if (rtt_ms >= 0) {
     out.print(rtt_ms);
@@ -368,7 +368,8 @@ void habCsvLineGroundPingTimeout(Print& out, uint16_t seq, const char* rx_utc,
                                  uint32_t waited_ms) {
   out.print(F("PING,"));
   out.print(rx_utc ? rx_utc : "");
-  out.print(F(",timeout,"));
+  // event=timeout, acked=0 — explicit no-ACK marker for analysis filters
+  out.print(F(",timeout,0,"));
   // Blank: rssi,snr,ts_ms,gps_time,lat,lon,alt,tilt,pitch,roll,heading,sats,flags×3
   out.printf("%u,-%lu,,,,,,,,,,,,,,,\n", (unsigned)seq,
              (unsigned long)waited_ms);

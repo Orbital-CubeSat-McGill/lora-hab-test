@@ -12,6 +12,7 @@
 
 #include "pins.h"
 #include "qmc5883p.h"
+#include "radio_config.h"
 
 static Adafruit_MPU6050 mpu;
 static Qmc5883P mag;
@@ -23,8 +24,8 @@ static SPIClass SdSpi(HSPI);
 static HabSensorStatus g_status = {};
 static File g_logFile;
 static File g_pingFile;
-// e.g. "/20261028_063015" — one new directory per boot/reset
-static char g_sessionDir[24] = {};
+// e.g. "/20261028_063015_sf10_bw125_cr5_p22_915" — one dir per boot/reset
+static char g_sessionDir[64] = {};
 
 static float rad2deg(float r) { return r * 180.0f / PI; }
 
@@ -68,7 +69,8 @@ static unsigned nextBootIndex() {
       if (strncmp(name, "boot_", 5) == 0) {
         char* end = nullptr;
         unsigned long n = strtoul(name + 5, &end, 10);
-        if (end != name + 5 && *end == '\0' && n > maxIdx) {
+        // Accept "boot_3" or "boot_3_sf10_..." (PHY suffix).
+        if (end != name + 5 && (*end == '\0' || *end == '_') && n > maxIdx) {
           maxIdx = (unsigned)n;
         }
       }
@@ -79,10 +81,13 @@ static unsigned nextBootIndex() {
   return maxIdx + 1;
 }
 
-// Build "/YYYYMMDD_HHMMSS" or "/boot_N" if GPS time is unavailable.
-// On GPS-name collision, append _2, _3, ...
+// Build "/YYYYMMDD_HHMMSS_<phy>" or "/boot_N_<phy>" if GPS time unavailable.
+// On name collision, append _2, _3, ...
 static bool createSessionDirectory() {
   char base[20];
+  char phy[40];
+  habRadioPhySlug(phy, sizeof(phy));
+
   if (gps.date.isValid() && gps.time.isValid() && gps.date.year() >= 2020) {
     snprintf(base, sizeof(base), "%04u%02u%02u_%02u%02u%02u", gps.date.year(),
              gps.date.month(), gps.date.day(), gps.time.hour(),
@@ -93,9 +98,10 @@ static bool createSessionDirectory() {
 
   for (int attempt = 0; attempt < 100; ++attempt) {
     if (attempt == 0) {
-      snprintf(g_sessionDir, sizeof(g_sessionDir), "/%s", base);
+      snprintf(g_sessionDir, sizeof(g_sessionDir), "/%s_%s", base, phy);
     } else {
-      snprintf(g_sessionDir, sizeof(g_sessionDir), "/%s_%d", base, attempt + 1);
+      snprintf(g_sessionDir, sizeof(g_sessionDir), "/%s_%s_%d", base, phy,
+               attempt + 1);
     }
     if (SD.exists(g_sessionDir)) {
       continue;
@@ -111,7 +117,7 @@ static bool createSessionDirectory() {
 }
 
 static bool openSessionLogs() {
-  char path[40];
+  char path[80];
 
   snprintf(path, sizeof(path), "%s/flight.csv", g_sessionDir);
   g_logFile = SD.open(path, FILE_WRITE);
