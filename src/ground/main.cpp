@@ -20,12 +20,19 @@ static bool     g_pingWaiting = false;
 static uint32_t g_pingSentMs = 0;
 static uint16_t g_pingExpectSeq = 0;
 
+// Last completed ping result for OLED (idle until first PING).
+enum PingUi : uint8_t { PING_UI_NONE = 0, PING_UI_WAIT, PING_UI_ACK, PING_UI_NOACK };
+static PingUi   g_pingUi = PING_UI_NONE;
+static uint16_t g_pingUiSeq = 0;
+static int32_t  g_pingUiRttMs = -1;
+
 static float    g_lastRssi = 0;
 static float    g_lastSnr  = 0;
 static uint16_t g_lastSeq  = 0;
 static int32_t  g_lastAltMm = 0;
 static uint32_t g_lastRxMs  = 0;
 static bool     g_havePacket = false;
+static uint32_t g_lastSessionId = 0;  // from TELEM/ACK; used on ping timeout CSV
 
 static String g_serialLine;
 
@@ -60,21 +67,38 @@ static void updateOled() {
     display.printf("seq %u", g_lastSeq);
     habOledRow(display, row++);
     display.printf("alt %.0fm", g_lastAltMm / 1000.0);
-    uint32_t age = (millis() - g_lastRxMs) / 1000UL;
+    const uint32_t age = (millis() - g_lastRxMs) / 1000UL;
     habOledRow(display, row++);
     display.printf("age %lus", (unsigned long)age);
   }
-  if (g_pingWaiting) {
-    habOledRow(display, row++);
-    display.print(F("ping..."));
+
+  habOledRow(display, row++);
+  switch (g_pingUi) {
+    case PING_UI_WAIT:
+      display.printf("PING #%u ...", g_pingUiSeq);
+      break;
+    case PING_UI_ACK:
+      if (g_pingUiRttMs >= 0) {
+        display.printf("ACK #%u %ldms", g_pingUiSeq, (long)g_pingUiRttMs);
+      } else {
+        display.printf("ACK #%u", g_pingUiSeq);
+      }
+      break;
+    case PING_UI_NOACK:
+      display.printf("NO-ACK #%u", g_pingUiSeq);
+      break;
+    default:
+      display.print(F("ping: --"));
+      break;
   }
   display.display();
 }
 
 static void sendPing() {
   HabPacket pkt = {};
-  pkt.type = HAB_PKT_PING;
-  pkt.seq  = ++g_pingSeq;
+  pkt.type       = HAB_PKT_PING;
+  pkt.seq        = ++g_pingSeq;
+  pkt.session_id = 0;  // payload fills session_id on ACK
   habSampleClear(pkt.sample);
 
   uint8_t buf[HAB_PKT_MAX_LEN];
@@ -90,6 +114,9 @@ static void sendPing() {
   g_pingWaiting   = true;
   g_pingSentMs    = millis();
   g_pingExpectSeq = pkt.seq;
+  g_pingUi        = PING_UI_WAIT;
+  g_pingUiSeq     = pkt.seq;
+  g_pingUiRttMs   = -1;
   Serial.printf("[ground] PING seq=%u\n", pkt.seq);
   updateOled();
 }
@@ -101,6 +128,9 @@ static void onDecoded(const HabPacket& pkt, float rssi, float snr) {
   g_lastAltMm  = pkt.sample.alt_mm;
   g_lastRxMs   = millis();
   g_havePacket = true;
+  if (pkt.session_id != 0) {
+    g_lastSessionId = pkt.session_id;
+  }
 
   char utc[24];
   utcNow(utc, sizeof(utc));
@@ -113,6 +143,9 @@ static void onDecoded(const HabPacket& pkt, float rssi, float snr) {
     if (g_pingWaiting && pkt.seq == g_pingExpectSeq) {
       rtt = (int32_t)(millis() - g_pingSentMs);
       g_pingWaiting = false;
+      g_pingUi      = PING_UI_ACK;
+      g_pingUiSeq   = pkt.seq;
+      g_pingUiRttMs = rtt;
     }
     habPrettyPrintAck(Serial, pkt, rssi, snr, rtt);
     habCsvLineGroundPingAck(Serial, pkt, rssi, snr, utc, rtt);
@@ -177,7 +210,7 @@ void setup() {
   Serial.println(F("\n=== HAB Ground ==="));
   Serial.println(F("Laptop test: log USB serial with:"));
   Serial.println(F("  uv run tools/serial_logger.py /dev/ttyUSB0 --lat LAT --lon LON"));
-  Serial.println(F("Files: logs/<utc>_<phy>/{flight,ping}.csv + ground.log + meta.txt"));
+  Serial.println(F("Files: logs/<utc>_<phy>_<session_id>/ …"));
   habRadioPrintConfig(Serial);
   habCsvHeaderGroundFlight(Serial);
   habCsvHeaderGroundPing(Serial);
@@ -223,11 +256,15 @@ void loop() {
     const uint16_t seq = g_pingExpectSeq;
     const uint32_t waited = millis() - g_pingSentMs;
     g_pingWaiting = false;
+    g_pingUi      = PING_UI_NOACK;
+    g_pingUiSeq   = seq;
+    g_pingUiRttMs = -1;
     Serial.printf("[ground] PING seq=%u NO-ACK (timeout)\n", seq);
     habPrettyPrintPingTimeout(Serial, seq, waited);
     char utc[24];
     utcNow(utc, sizeof(utc));
-    habCsvLineGroundPingTimeout(Serial, seq, utc, HAB_PING_TIMEOUT_MS);
+    habCsvLineGroundPingTimeout(Serial, seq, g_lastSessionId, utc,
+                                HAB_PING_TIMEOUT_MS);
     updateOled();
   }
 

@@ -19,6 +19,14 @@ static char g_gpsTime[16];
 static uint16_t g_telemSeq = 0;
 static uint32_t g_lastSampleMs = 0;
 static uint32_t g_lastTelemMs  = 0;
+static bool     g_sdOk = false;
+
+// Last uplink PING (shown on OLED until overwritten).
+static bool     g_pinged = false;
+static uint16_t g_pingSeq = 0;
+static float    g_pingRssi = 0;
+static float    g_pingSnr = 0;
+static uint32_t g_pingMs = 0;
 
 static volatile bool g_rxFlag = false;
 
@@ -37,6 +45,8 @@ static void updateOled() {
   habOledRow(display, row++);
   display.printf("SF%d %ddBm", LORA_SF, LORA_TX_POWER_DBM);
   habOledRow(display, row++);
+  display.print(g_sdOk ? F("SD ok") : F("SD FAIL"));
+  habOledRow(display, row++);
   display.printf("seq %u", g_telemSeq);
   habOledRow(display, row++);
   if (g_latest.flags & HAB_FLAG_GPS_OK) {
@@ -44,17 +54,26 @@ static void updateOled() {
   } else {
     display.print(F("gps n/a"));
   }
-  habOledRow(display, row++);
-  if (g_latest.flags & HAB_FLAG_IMU_OK) {
-    display.printf("tilt %.1f", g_latest.tilt_cdeg / 100.0);
+
+  if (g_pinged) {
+    const uint32_t age_s = (millis() - g_pingMs) / 1000UL;
+    habOledRow(display, row++);
+    display.printf("PINGED #%u", g_pingSeq);
+    habOledRow(display, row++);
+    display.printf("%.0f %.1f %lus", g_pingRssi, g_pingSnr, (unsigned long)age_s);
   } else {
-    display.print(F("imu n/a"));
-  }
-  habOledRow(display, row++);
-  if (g_latest.flags & HAB_FLAG_MAG_OK) {
-    display.printf("hdg %.0f", g_latest.heading_cdeg / 100.0);
-  } else {
-    display.print(F("mag n/a"));
+    habOledRow(display, row++);
+    if (g_latest.flags & HAB_FLAG_IMU_OK) {
+      display.printf("tilt %.1f", g_latest.tilt_cdeg / 100.0);
+    } else {
+      display.print(F("imu n/a"));
+    }
+    habOledRow(display, row++);
+    if (g_latest.flags & HAB_FLAG_MAG_OK) {
+      display.printf("hdg %.0f", g_latest.heading_cdeg / 100.0);
+    } else {
+      display.print(F("mag n/a"));
+    }
   }
   display.display();
 }
@@ -75,9 +94,10 @@ static bool transmitPacket(const HabPacket& pkt) {
 
 static void sendTelem() {
   HabPacket pkt = {};
-  pkt.type   = HAB_PKT_TELEM;
-  pkt.seq    = ++g_telemSeq;
-  pkt.sample = g_latest;
+  pkt.type       = HAB_PKT_TELEM;
+  pkt.seq        = ++g_telemSeq;
+  pkt.session_id = habSensorsSessionId();
+  pkt.sample     = g_latest;
   // SD row with seq + same ts_ms as the over-the-air sample (join key vs ground).
   habSensorsLogSample(g_latest, g_gpsTime, (int32_t)pkt.seq);
   if (transmitPacket(pkt)) {
@@ -94,9 +114,17 @@ static void handlePing(uint16_t seq, float rssi, float snr) {
   habSensorsReadSample(g_latest, g_gpsTime, sizeof(g_gpsTime));
 
   HabPacket pkt = {};
-  pkt.type   = HAB_PKT_ACK;
-  pkt.seq    = seq;
-  pkt.sample = g_latest;
+  pkt.type       = HAB_PKT_ACK;
+  pkt.seq        = seq;
+  pkt.session_id = habSensorsSessionId();
+  pkt.sample     = g_latest;
+
+  g_pinged   = true;
+  g_pingSeq  = seq;
+  g_pingRssi = rssi;
+  g_pingSnr  = snr;
+  g_pingMs   = millis();
+  updateOled();
 
   // Log uplink quality of the received PING (before TX clears radio stats).
   Serial.printf("[payload] PING seq=%u  RSSI=%.1f dBm  SNR=%.1f dB  gps=%s\n",
@@ -109,6 +137,7 @@ static void handlePing(uint16_t seq, float rssi, float snr) {
   } else {
     Serial.println(F("[payload] ACK TX failed"));
   }
+  updateOled();
 }
 
 static void serviceRx() {
@@ -163,9 +192,13 @@ void setup() {
   }
 
   HabSensorStatus sens = habSensorsBegin();
+  g_sdOk = sens.sd_ok;
+  Serial.printf("[payload] session_id=%08lX\n",
+                (unsigned long)habSensorsSessionId());
   if (sens.sd_ok) {
     Serial.printf("[payload] Logging session %s\n", habSensorsSessionDir());
   }
+  updateOled();
   habSampleClear(g_latest);
 
   armReceive();
@@ -194,5 +227,14 @@ void loop() {
   if (now - g_lastTelemMs >= HAB_TELEM_INTERVAL_MS) {
     g_lastTelemMs = now;
     sendTelem();
+  }
+
+  // Refresh "PINGED … ago" age while a ping banner is up.
+  if (g_pinged) {
+    static uint32_t lastPingOled = 0;
+    if (now - lastPingOled >= 500) {
+      lastPingOled = now;
+      updateOled();
+    }
   }
 }

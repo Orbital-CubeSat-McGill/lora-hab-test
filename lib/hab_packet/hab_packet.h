@@ -4,7 +4,8 @@
 #include <stdint.h>
 
 static const uint8_t HAB_PKT_MAGIC   = 0xA5;
-static const uint8_t HAB_PKT_VERSION = 2;
+// v3: header adds session_id (payload-owned run id for folder matching).
+static const uint8_t HAB_PKT_VERSION = 3;
 
 enum HabPktType : uint8_t {
   HAB_PKT_TELEM = 1,
@@ -40,10 +41,12 @@ struct HabSample {
 struct HabPacket {
   uint8_t   type;
   uint16_t  seq;
-  HabSample sample;     // meaningful for TELEM/ACK; zeroed for PING
+  uint32_t  session_id;  // payload run id; 0 on ground→payload PING
+  HabSample sample;      // meaningful for TELEM/ACK; zeroed for PING
 };
 
-static const size_t HAB_PKT_HEADER_LEN = 1 + 1 + 1 + 2;  // magic,ver,type,seq
+static const size_t HAB_PKT_HEADER_LEN =
+    1 + 1 + 1 + 2 + 4;  // magic,ver,type,seq,session_id
 static const size_t HAB_SAMPLE_LEN =
     4 + 4 + 4 + 4 + 2 + 2 + 2 + 2 + 1 + 1 + 1 + 1 + 1;  // 29
 static const size_t HAB_PKT_TELEM_LEN = HAB_PKT_HEADER_LEN + HAB_SAMPLE_LEN;
@@ -69,8 +72,8 @@ void habPrettyPrintPingTimeout(Print& out, uint16_t seq, uint32_t waited_ms);
 // Payload SD flight.csv (no RX RF columns).
 void habCsvHeaderPayload(Print& out);
 // seq < 0 → leave seq column blank (1 Hz samples). TELEM rows pass the TX seq.
-void habCsvLinePayload(Print& out, const HabSample& s, const char* gps_time,
-                       int32_t seq = -1);
+void habCsvLinePayload(Print& out, uint32_t session_id, const HabSample& s,
+                       const char* gps_time, int32_t seq = -1);
 
 // Ground → host: FLIGHT,<rx_utc>,...  (TELEM only; full OTA sample + RSSI/SNR)
 void habCsvHeaderGroundFlight(Print& out);
@@ -81,5 +84,5 @@ void habCsvLineGroundFlight(Print& out, const HabPacket& pkt, float rssi,
 void habCsvHeaderGroundPing(Print& out);
 void habCsvLineGroundPingAck(Print& out, const HabPacket& pkt, float rssi,
                              float snr, const char* rx_utc, int32_t rtt_ms);
-void habCsvLineGroundPingTimeout(Print& out, uint16_t seq, const char* rx_utc,
-                                 uint32_t waited_ms);
+void habCsvLineGroundPingTimeout(Print& out, uint16_t seq, uint32_t session_id,
+                                 const char* rx_utc, uint32_t waited_ms);

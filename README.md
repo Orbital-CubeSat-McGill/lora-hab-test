@@ -1,116 +1,70 @@
 # LoRa HAB Link-Budget Test
 
-Dual-firmware PlatformIO project for two **Heltec WiFi LoRa 32 V3** nodes:
+Two **Heltec WiFi LoRa 32 V3** firmwares (PlatformIO):
 
-- **Payload** — logs IMU tilt, magnetometer heading, and GPS to microSD at 1 Hz; broadcasts telemetry every 1 s over LoRa; answers ground PINGs with ACK.
-- **Ground** — receives telemetry, shows last packet on the OLED, pretty-prints + CSV over USB; can PING the payload (PRG button or serial `PING`).
+- **Payload** — 1 Hz SD log + 1 Hz LoRa TELEM; ACKs ground PINGs
+- **Ground** — receives TELEM, OLED status, USB CSV; PING via PRG or serial `PING`
 
-Starting PHY (edit before reflashing both boards): **915.0 MHz, SF10, 125 kHz, CR 4/5, 22 dBm**.
+Default PHY (edit [`include/radio_config.h`](include/radio_config.h), reflash **both**): **915 MHz, SF10, 125 kHz, CR 4/5, 22 dBm**.
 
 ## Quick start
 
 ```bash
-# Build
-pio run -e payload
-pio run -e ground
-
-# Flash (select port if needed: --upload-port /dev/ttyUSB0)
 pio run -e payload -t upload
 pio run -e ground  -t upload
 
-# Serial monitor
-pio device monitor -e ground -b 115200
-```
-
-Laptop CSV logger (ground USB; needs [uv](https://docs.astral.sh/uv/)):
-
-```bash
+# Ground laptop logger ([uv](https://docs.astral.sh/uv/)); --lat/--lon = host ground position
 uv run tools/serial_logger.py /dev/ttyUSB0 --lat 45.5048 --lon -73.5772 --alt 40
-# → logs/<utc>_<phy>/{flight.csv,ping.csv,ground.log,meta.txt}
 ```
 
-`--lat` / `--lon` (optional `--alt`) are the **host** ground position stamped into every CSV row — the ground Heltec has no GPS. Omit them if you only care about RSSI/SNR.
+Or `pio device monitor -e ground -b 115200` and type `PING`.
 
-On the ground serial console, type `PING` + Enter, or press the **PRG** button.
+## Radio knobs
 
-## Changing LoRa parameters
+In `radio_config.h`: `LORA_FREQUENCY_HZ`, `LORA_SF`, `LORA_BW_KHZ`, `LORA_CR`, `LORA_TX_POWER_DBM`  
+(or presets `LORA_PRESET_SF7_22` / `SF10_22` / `SF12_14`).
 
-Edit [`include/radio_config.h`](include/radio_config.h) — the knobs at the top:
+## Pins (Heltec WiFi LoRa 32 V3)
 
-| Define | Default | Meaning |
-|--------|---------|---------|
-| `LORA_FREQUENCY_HZ` | `915000000` | Center frequency |
-| `LORA_SF` | `10` | Spreading factor 7–12 |
-| `LORA_BW_KHZ` | `125.0` | Bandwidth kHz |
-| `LORA_CR` | `5` | Coding rate 4/5 |
-| `LORA_TX_POWER_DBM` | `22` | TX power dBm |
+Onboard LoRa/OLED: Heltec defaults. Sensors:
 
-Or uncomment a preset (`LORA_PRESET_SF7_22`, `LORA_PRESET_SF10_22`, `LORA_PRESET_SF12_14`).
+| Function | GPIO |
+|----------|------|
+| I2C SDA / SCL (MPU6050, QMC5883P, OLED) | 17 / 18 |
+| SD CS / SCK / MOSI / MISO (HSPI) | 4 / 7 / 6 / 5 |
+| GPS TX→ESP RX / GPS RX←ESP TX | 47 / 48 (9600) |
+| PRG (ground PING) | 0 |
+| Vext (optional, active LOW) | 36 |
 
-**Reflash both** `payload` and `ground` with the same config.
+I2C: OLED `0x3C`, MPU6050 `0x68`, QMC5883P `0x2C`.  
+Power: 1S → BAT, or buck to 5V pin. Sensors on 3V3. Ground node needs no SD.
 
-## Pin connections (Heltec WiFi LoRa 32 V3)
+Missing IMU/mag/SD → warn and continue; only radio init is fatal.
 
-Onboard LoRa / OLED use Heltec defaults (do not rewire).
+## Logging & matching
 
-| Function | Module pin | Heltec GPIO / net | Notes |
-|----------|------------|-------------------|-------|
-| I2C SDA | MPU6050 SDA, QMC5883P SDA | **GPIO 17** | Shared with OLED |
-| I2C SCL | MPU6050 SCL, QMC5883P SCL | **GPIO 18** | |
-| 3V3 | VCC | **3V3** | |
-| GND | GND | **GND** | |
-| SD CS | CS | **GPIO 4** | |
-| SD SCK | SCK | **GPIO 7** | Second SPI (not LoRa) |
-| SD MOSI | MOSI | **GPIO 6** | |
-| SD MISO | MISO | **GPIO 5** | |
-| GPS TX | Neo-6M TX | **GPIO 47** (ESP RX) | 9600 baud |
-| GPS RX | Neo-6M RX | **GPIO 48** (ESP TX) | |
-| Ping | — | **GPIO 0** (PRG) | Ground only |
-| Vext (optional) | — | **GPIO 36** (active LOW) | External power switch |
-| Battery | 1S LiPo | **BAT** | Or buck **5V** into 5V pin |
+OTA `ver=3`: TELEM/ACK carry sample + `session_id`; PING is header-only.
 
-I2C addresses: OLED `0x3C`, MPU6050 `0x68`, QMC5883P `0x2C`.
+| Where | Folder | Files |
+|-------|--------|-------|
+| Payload SD | `/<utc>_<phy>_<session_id>/` | `flight.csv`, `ping.csv` |
+| Laptop | `logs/<utc>_<phy>_<session_id>/` | `flight.csv`, `ping.csv`, `ground.log`, `meta.txt` |
 
-**Power:** 1S 3.7 V → BAT, or 3S → buck to 5 V → Heltec 5V. Sensors on 3V3. Do not feed 11.1 V into the Heltec.
+Match runs by the shared **`session_id`** suffix (also a CSV column). Join rows on `session_id` + `seq`.
 
-Ground node needs **no SD** — log on the laptop over USB.
+- Payload `flight.csv`: sensors (+ `seq` on TELEM TX)
+- Payload `ping.csv`: uplink RSSI/SNR per received PING
+- Ground `flight.csv`: TELEM + downlink RSSI/SNR + `gnd_lat/lon/alt`
+- Ground `ping.csv`: `acked=1|0` (timeout ⇒ no ACK), RTT, downlink RF
 
-## Soft-fail sensors
+## Bench check
 
-Missing **magnetometer**, **IMU**, or **SD** prints a one-time warning and continues. Telemetry flags mark fields as `n/a`. Only **radio** init failure is fatal. You can bench without the QMC5883P.
-
-## Data formats
-
-OTA packet `ver=2`: TELEM/ACK carry the full sample (incl. GPS time `HH:MM:SS`). PING is header-only.
-
-**Payload SD** — `/YYYYMMDD_HHMMSS_<phy>/` (or `/boot_N_<phy>/`), e.g. `..._sf10_bw125_cr5_p22_915`:
-
-- `flight.csv` — `ts_ms,gps_time,seq,lat,lon,alt_m,tilt_deg,pitch_deg,roll_deg,heading_deg,sats,gps_ok,imu_ok,mag_ok`  
-  (`seq` blank on 1 Hz-only rows if TELEM is slower; set on TELEM TX — join ground on `seq` / `ts_ms`)
-- `ping.csv` — `ts_ms,gps_time,seq,rssi_dbm,snr_db` (uplink RF at PING receive)
-
-**Ground** (`serial_logger.py` → `logs/<utc>_<phy>/`):
-
-- `flight.csv` — TELEM: sample fields + `rx_utc,rssi_dbm,snr_db,gnd_lat,gnd_lon,gnd_alt_m`
-- `ping.csv` — `rx_utc,event,acked,seq,rtt_ms,rssi_dbm,snr_db` + ACK sample + ground GPS  
-  (`event`=`ack`|`timeout`; **`acked`**=`1`|`0` — filter `acked==0` for PINGs with no reply; timeout blanks sample, `rtt_ms=-<timeout_ms>`)
-- `meta.txt` — PHY slug + ground GPS used for the session
-
-## End-to-end bench checklist
-
-1. Same `radio_config.h` on both boards; antennas attached.
-2. Flash payload + ground; open ground serial (or `serial_logger.py`).
-3. Confirm TELEM every ~1 s with RSSI/SNR.
-4. Send `PING` / press PRG → ACK with RTT (or TIMEOUT if payload off).
-5. Confirm payload `<session>/flight.csv` grows at ~1 Hz when SD present (new folder each reset).
-6. Unplug magnetometer, reboot payload → warning, no hang, heading `n/a`.
-
-## Repo layout
+1. Same `radio_config.h` + antennas on both; flash both.
+2. Logger (or serial) on ground → TELEM ~1 Hz with RSSI/SNR.
+3. PRG / `PING` → ACK + RTT (or `acked=0`).
+4. Payload SD folder grows; same `session_id` as laptop logs folder.
 
 ```
-include/pins.h radio_config.h
-lib/hab_radio/ hab_packet/ hab_display/ hab_sensors/
-src/payload/main.cpp
-src/ground/main.cpp
-tools/serial_logger.py
+include/pins.h  radio_config.h
+lib/hab_*   src/payload/  src/ground/  tools/serial_logger.py
 ```

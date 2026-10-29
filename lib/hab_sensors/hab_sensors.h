@@ -24,8 +24,11 @@ void habSensorsReadSample(HabSample& out, char* gpsTimeBuf, size_t gpsTimeCap);
 
 const HabSensorStatus& habSensorsStatus();
 
-// Session directory created on this boot, e.g. "/20261028_063015", or "".
+// Session directory created on this boot, e.g. "/20261028_063015_…_a1b2c3d4", or "".
 const char* habSensorsSessionDir();
+
+// Payload-owned run id (also in OTA TELEM/ACK and folder name). Never 0.
+uint32_t habSensorsSessionId();
 
 // Append one CSV data row to <session>/flight.csv.
 // Pass telem_seq >= 0 on TELEM TX so ground logs can join on seq (+ ts_ms).

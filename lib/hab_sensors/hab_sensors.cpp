@@ -5,6 +5,7 @@
 #include <SPI.h>
 #include <TinyGPSPlus.h>
 #include <Wire.h>
+#include <esp_system.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,8 +25,9 @@ static SPIClass SdSpi(HSPI);
 static HabSensorStatus g_status = {};
 static File g_logFile;
 static File g_pingFile;
-// e.g. "/20261028_063015_sf10_bw125_cr5_p22_915" — one dir per boot/reset
-static char g_sessionDir[64] = {};
+// e.g. "/20261028_063015_sf10_bw125_cr5_p22_915_a1b2c3d4"
+static char g_sessionDir[72] = {};
+static uint32_t g_sessionId = 0;
 
 static float rad2deg(float r) { return r * 180.0f / PI; }
 
@@ -81,7 +83,7 @@ static unsigned nextBootIndex() {
   return maxIdx + 1;
 }
 
-// Build "/YYYYMMDD_HHMMSS_<phy>" or "/boot_N_<phy>" if GPS time unavailable.
+// Build "/YYYYMMDD_HHMMSS_<phy>_<sid>" or "/boot_N_<phy>_<sid>".
 // On name collision, append _2, _3, ...
 static bool createSessionDirectory() {
   char base[20];
@@ -98,10 +100,11 @@ static bool createSessionDirectory() {
 
   for (int attempt = 0; attempt < 100; ++attempt) {
     if (attempt == 0) {
-      snprintf(g_sessionDir, sizeof(g_sessionDir), "/%s_%s", base, phy);
+      snprintf(g_sessionDir, sizeof(g_sessionDir), "/%s_%s_%08lX", base, phy,
+               (unsigned long)g_sessionId);
     } else {
-      snprintf(g_sessionDir, sizeof(g_sessionDir), "/%s_%s_%d", base, phy,
-               attempt + 1);
+      snprintf(g_sessionDir, sizeof(g_sessionDir), "/%s_%s_%08lX_%d", base, phy,
+               (unsigned long)g_sessionId, attempt + 1);
     }
     if (SD.exists(g_sessionDir)) {
       continue;
@@ -142,6 +145,11 @@ static bool openSessionLogs() {
 
 HabSensorStatus habSensorsBegin() {
   g_status = {};
+
+  // Shared with ground logs via OTA + folder suffix. Never 0 (0 = unknown).
+  do {
+    g_sessionId = esp_random();
+  } while (g_sessionId == 0);
 
   // Power external rails via Vext (active LOW) if used
   pinMode(PIN_VEXT, OUTPUT);
@@ -197,6 +205,8 @@ HabSensorStatus habSensorsBegin() {
 void habSensorsPollGps() { pollGpsBytes(); }
 
 const char* habSensorsSessionDir() { return g_sessionDir; }
+
+uint32_t habSensorsSessionId() { return g_sessionId; }
 
 const HabSensorStatus& habSensorsStatus() { return g_status; }
 
@@ -261,7 +271,7 @@ bool habSensorsLogSample(const HabSample& s, const char* gps_time,
   if (!g_status.sd_ok || !g_logFile) {
     return false;
   }
-  habCsvLinePayload(g_logFile, s, gps_time, telem_seq);
+  habCsvLinePayload(g_logFile, g_sessionId, s, gps_time, telem_seq);
   g_logFile.flush();
   return true;
 }
