@@ -111,9 +111,3 @@ src/payload/main.cpp
 src/ground/main.cpp
 tools/serial_logger.py
 ```
-
-## Out of scope (for now)
-
-- Live Leaflet map (CSV is ready for a later host UI)
-- Runtime SF/power changes from ground
-- LoRaWAN
