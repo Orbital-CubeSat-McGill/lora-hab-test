@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdio.h>
+
 // =============================================================================
 // EDIT THESE BEFORE REFLASHING — flash BOTH payload and ground with the same
 // values so the link-budget run uses a matched PHY on both ends.
@@ -63,3 +65,14 @@
 #ifndef HAB_PING_TIMEOUT_MS
   #define HAB_PING_TIMEOUT_MS 5000UL
 #endif
+
+// Compact PHY id for session folder names, e.g. "sf10_bw125_cr5_p22_915".
+static inline char* habRadioPhySlug(char* buf, size_t cap) {
+  if (!buf || cap == 0) {
+    return buf;
+  }
+  const unsigned mhz = (unsigned)(LORA_FREQUENCY_HZ / 1000000UL);
+  snprintf(buf, cap, "sf%u_bw%.0f_cr%u_p%d_%u", (unsigned)LORA_SF,
+           (double)LORA_BW_KHZ, (unsigned)LORA_CR, (int)LORA_TX_POWER_DBM, mhz);
+  return buf;
+}

@@ -176,8 +176,8 @@ void setup() {
   delay(500);
   Serial.println(F("\n=== HAB Ground ==="));
   Serial.println(F("Laptop test: log USB serial with:"));
-  Serial.println(F("  uv run tools/serial_logger.py /dev/ttyUSB0"));
-  Serial.println(F("Files go under: <repo>/logs/<utc>/{flight,ping}.csv + ground.log"));
+  Serial.println(F("  uv run tools/serial_logger.py /dev/ttyUSB0 --lat LAT --lon LON"));
+  Serial.println(F("Files: logs/<utc>_<phy>/{flight,ping}.csv + ground.log + meta.txt"));
   habRadioPrintConfig(Serial);
   habCsvHeaderGroundFlight(Serial);
   habCsvHeaderGroundPing(Serial);
@@ -223,7 +223,7 @@ void loop() {
     const uint16_t seq = g_pingExpectSeq;
     const uint32_t waited = millis() - g_pingSentMs;
     g_pingWaiting = false;
-    Serial.printf("[ground] PING seq=%u TIMEOUT\n", seq);
+    Serial.printf("[ground] PING seq=%u NO-ACK (timeout)\n", seq);
     habPrettyPrintPingTimeout(Serial, seq, waited);
     char utc[24];
     utcNow(utc, sizeof(utc));

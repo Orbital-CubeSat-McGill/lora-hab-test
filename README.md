@@ -25,9 +25,11 @@ pio device monitor -e ground -b 115200
 Laptop CSV logger (ground USB; needs [uv](https://docs.astral.sh/uv/)):
 
 ```bash
-uv run tools/serial_logger.py /dev/ttyUSB0 logs
-# → logs/<utc>/{flight.csv,ping.csv,ground.log}
+uv run tools/serial_logger.py /dev/ttyUSB0 --lat 45.5048 --lon -73.5772 --alt 40
+# → logs/<utc>_<phy>/{flight.csv,ping.csv,ground.log,meta.txt}
 ```
+
+`--lat` / `--lon` (optional `--alt`) are the **host** ground position stamped into every CSV row — the ground Heltec has no GPS. Omit them if you only care about RSSI/SNR.
 
 On the ground serial console, type `PING` + Enter, or press the **PRG** button.
 
@@ -81,17 +83,18 @@ Missing **magnetometer**, **IMU**, or **SD** prints a one-time warning and conti
 
 OTA packet `ver=2`: TELEM/ACK carry the full sample (incl. GPS time `HH:MM:SS`). PING is header-only.
 
-**Payload SD** — `/YYYYMMDD_HHMMSS/` (or `/boot_N/`):
+**Payload SD** — `/YYYYMMDD_HHMMSS_<phy>/` (or `/boot_N_<phy>/`), e.g. `..._sf10_bw125_cr5_p22_915`:
 
 - `flight.csv` — `ts_ms,gps_time,seq,lat,lon,alt_m,tilt_deg,pitch_deg,roll_deg,heading_deg,sats,gps_ok,imu_ok,mag_ok`  
-  (`seq` blank on 1 Hz rows; set on TELEM TX — join ground `flight.csv` on `seq` / `ts_ms`)
+  (`seq` blank on 1 Hz-only rows if TELEM is slower; set on TELEM TX — join ground on `seq` / `ts_ms`)
 - `ping.csv` — `ts_ms,gps_time,seq,rssi_dbm,snr_db` (uplink RF at PING receive)
 
-**Ground** (`serial_logger.py` → `logs/<utc>/`):
+**Ground** (`serial_logger.py` → `logs/<utc>_<phy>/`):
 
-- `flight.csv` — TELEM: same sample fields + `rx_utc,rssi_dbm,snr_db`
-- `ping.csv` — `rx_utc,event,seq,rtt_ms,rssi_dbm,snr_db` + ACK sample fields  
-  (`event`=`ack`|`timeout`; timeout blanks sample, `rtt_ms=-<timeout_ms>`)
+- `flight.csv` — TELEM: sample fields + `rx_utc,rssi_dbm,snr_db,gnd_lat,gnd_lon,gnd_alt_m`
+- `ping.csv` — `rx_utc,event,acked,seq,rtt_ms,rssi_dbm,snr_db` + ACK sample + ground GPS  
+  (`event`=`ack`|`timeout`; **`acked`**=`1`|`0` — filter `acked==0` for PINGs with no reply; timeout blanks sample, `rtt_ms=-<timeout_ms>`)
+- `meta.txt` — PHY slug + ground GPS used for the session
 
 ## End-to-end bench checklist
 
