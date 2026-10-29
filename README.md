@@ -26,18 +26,23 @@ In `radio_config.h`: `LORA_FREQUENCY_HZ`, `LORA_SF`, `LORA_BW_KHZ`, `LORA_CR`, `
 
 ## Pins (Heltec WiFi LoRa 32 V3)
 
-Onboard LoRa/OLED: Heltec defaults. Sensors:
+Onboard LoRa / OLED use Heltec defaults (do not rewire). See [`include/pins.h`](include/pins.h).
 
-| Function | GPIO |
-|----------|------|
-| I2C SDA / SCL (MPU6050, QMC5883P, OLED) | 17 / 18 |
-| SD CS / SCK / MOSI / MISO (HSPI) | 4 / 7 / 6 / 5 |
-| GPS TX→ESP RX / GPS RX←ESP TX | 47 / 48 (9600) |
-| PRG (ground PING) | 0 |
-| Vext (optional, active LOW) | 36 |
+| Function | Module pin | Heltec GPIO | Notes |
+|----------|------------|-------------|-------|
+| LoRa NSS / SCK / MOSI / MISO | — | 8 / 9 / 10 / 11 | Onboard SX1262 |
+| LoRa RST / BUSY / DIO1 | — | 12 / 13 / 14 | |
+| I2C SDA | MPU6050 SDA, QMC5883P SDA, OLED | **17** | Shared bus |
+| I2C SCL | MPU6050 SCL, QMC5883P SCL, OLED | **18** | |
+| OLED RST | — | 21 | Onboard |
+| 3V3 / GND | VCC / GND | **3V3 / GND** | |
+| SD CS / SCK / MOSI / MISO | CS / SCK / MOSI / MISO | **4 / 7 / 6 / 5** | Second SPI (not LoRa) |
+| GPS TX / RX | Neo-6M TX / RX | **47 / 48** | ESP RX←TX, ESP TX→RX; 9600 |
+| Ping | — | **0** (PRG) | Ground only |
+| Vext (optional) | — | **36** | Active LOW |
+| Battery | 1S LiPo | **BAT** | Or buck **5V** into 5V pin |
 
-I2C: OLED `0x3C`, MPU6050 `0x68`, QMC5883P `0x2C`.  
-Power: 1S → BAT, or buck to 5V pin. Sensors on 3V3. Ground node needs no SD.
+I2C: OLED `0x3C`, MPU6050 `0x68`, QMC5883P `0x2C`. Sensors on 3V3. Ground node needs no SD.
 
 Missing IMU/mag/SD → warn and continue; only radio init is fatal.
 
