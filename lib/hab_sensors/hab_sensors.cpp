@@ -158,18 +158,43 @@ HabSensorStatus habSensorsBegin() {
 
   // External sensors on header I2C (not the OLED's 17/18 bus).
   Wire1.begin(PIN_I2C_SDA, PIN_I2C_SCL);
+  Wire1.setClock(100000);
   Serial.printf("[sensors] Ext I2C Wire1 SDA=%d SCL=%d\n", PIN_I2C_SDA,
                 PIN_I2C_SCL);
 
-  // --- IMU ---
-  if (mpu.begin(I2C_ADDR_MPU6050, &Wire1)) {
+  // Scan so a wiring mistake is obvious on the serial console.
+  Serial.print(F("[sensors] Wire1 scan:"));
+  int found = 0;
+  for (uint8_t addr = 1; addr < 127; addr++) {
+    Wire1.beginTransmission(addr);
+    if (Wire1.endTransmission() == 0) {
+      Serial.printf(" 0x%02X", addr);
+      found++;
+    }
+  }
+  if (found == 0) {
+    Serial.print(F(" (none)"));
+  }
+  Serial.println();
+
+  // --- IMU (AD0 low → 0x68, AD0 high → 0x69) ---
+  bool imu = mpu.begin(I2C_ADDR_MPU6050, &Wire1);
+  if (!imu) {
+    imu = mpu.begin(0x69, &Wire1);
+    if (imu) {
+      Serial.println(F("[sensors] MPU6050 at 0x69 (AD0 high)"));
+    }
+  }
+  if (imu) {
     mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
     mpu.setGyroRange(MPU6050_RANGE_500_DEG);
     mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
     g_status.imu_ok = true;
     Serial.println(F("[sensors] MPU6050 OK"));
   } else {
-    Serial.println(F("[sensors] WARN: MPU6050 missing — tilt disabled"));
+    Serial.println(
+        F("[sensors] WARN: MPU6050 missing — check SDA=41 SCL=42 GND; "
+          "swap SDA/SCL if scan empty"));
   }
 
   // --- Magnetometer (optional) ---
