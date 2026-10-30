@@ -31,15 +31,16 @@ Onboard LoRa / OLED are already connected. External wiring only ([`include/pins.
 | Module | Module pin | Heltec |
 |--------|------------|--------|
 | MPU6050 | VCC / GND | 3V3 / GND |
-| MPU6050 | SDA / SCL | GPIO 17 / 18 |
+| MPU6050 | SDA / SCL | **GPIO 41 / 42** |
 | QMC5883P | VCC / GND | 3V3 / GND |
-| QMC5883P | SDA / SCL | GPIO 17 / 18 |
+| QMC5883P | SDA / SCL | **GPIO 41 / 42** |
 | microSD | VCC / GND | 3V3 / GND |
 | microSD | CS / SCK / MOSI / MISO | GPIO 4 / 7 / 6 / 5 |
 | Neo-6M | VCC / GND | 3V3 / GND |
 | Neo-6M | TX / RX | GPIO 47 / 48 (ESP RX ← GPS TX, ESP TX → GPS RX) |
 
-I2C addresses: MPU6050 `0x68`, QMC5883P `0x2C` (OLED onboard `0x3C`). Ground node needs no external modules.
+External I2C is on the pin headers (41/42). Onboard OLED stays on 17/18 (not broken out).  
+I2C addresses: MPU6050 `0x68`, QMC5883P `0x2C`, OLED `0x3C`. Ground node needs no external modules.
 
 Missing IMU/mag/SD → warn and continue; only radio init is fatal.
 

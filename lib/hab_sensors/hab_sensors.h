@@ -11,8 +11,8 @@ struct HabSensorStatus {
   bool sd_ok;
 };
 
-// Init I2C peripherals + GPS UART + SD. Soft-fails individually.
-// Call after Wire/display begin (shares I2C). Enables Vext.
+// Init external I2C (Wire1 @ 41/42) + GPS UART + SD. Soft-fails individually.
+// Call after display begin (OLED stays on Wire @ 17/18). Enables Vext.
 HabSensorStatus habSensorsBegin();
 
 // Poll GPS UART (call frequently).

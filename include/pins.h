@@ -14,14 +14,14 @@ static const int PIN_LORA_RST  = 12;
 static const int PIN_LORA_BUSY = 13;
 static const int PIN_LORA_DIO1 = 14;
 
-// --- Onboard OLED (SSD1306) I2C ---
+// --- Onboard OLED (SSD1306) I2C — NOT on the pin headers ---
 static const int PIN_OLED_SDA = 17;
 static const int PIN_OLED_SCL = 18;
 static const int PIN_OLED_RST = 21;
 
-// --- Shared external I2C (MPU6050 + QMC5883P on same bus as OLED) ---
-static const int PIN_I2C_SDA = PIN_OLED_SDA;
-static const int PIN_I2C_SCL = PIN_OLED_SCL;
+// --- External I2C on headers (MPU6050 + QMC5883P); Heltec Arduino SDA/SCL ---
+static const int PIN_I2C_SDA = 41;
+static const int PIN_I2C_SCL = 42;
 
 // --- MicroSD on second SPI bus (not LoRa's SPI) ---
 static const int PIN_SD_CS   = 4;

@@ -16,8 +16,8 @@ bool habDisplayBegin(Adafruit_SSD1306& display) {
   digitalWrite(PIN_OLED_RST, HIGH);
   delay(20);
 
-  // Always bring up I2C — sensors share this bus even if OLED fails.
-  Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL);
+  // Onboard OLED bus only (GPIO 17/18). External sensors use Wire1 on 41/42.
+  Wire.begin(PIN_OLED_SDA, PIN_OLED_SCL);
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, I2C_ADDR_OLED)) {
     return false;

@@ -156,8 +156,13 @@ HabSensorStatus habSensorsBegin() {
   digitalWrite(PIN_VEXT, LOW);
   delay(50);
 
+  // External sensors on header I2C (not the OLED's 17/18 bus).
+  Wire1.begin(PIN_I2C_SDA, PIN_I2C_SCL);
+  Serial.printf("[sensors] Ext I2C Wire1 SDA=%d SCL=%d\n", PIN_I2C_SDA,
+                PIN_I2C_SCL);
+
   // --- IMU ---
-  if (mpu.begin(I2C_ADDR_MPU6050, &Wire)) {
+  if (mpu.begin(I2C_ADDR_MPU6050, &Wire1)) {
     mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
     mpu.setGyroRange(MPU6050_RANGE_500_DEG);
     mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
@@ -168,7 +173,7 @@ HabSensorStatus habSensorsBegin() {
   }
 
   // --- Magnetometer (optional) ---
-  if (mag.begin(Wire, I2C_ADDR_QMC5883P)) {
+  if (mag.begin(Wire1, I2C_ADDR_QMC5883P)) {
     g_status.mag_ok = true;
     Serial.println(F("[sensors] QMC5883P OK"));
   } else {
