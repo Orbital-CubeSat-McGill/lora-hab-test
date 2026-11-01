@@ -44,7 +44,7 @@ static size_t encodeSample(const HabSample& s, uint8_t* out) {
   writeI16(out + 16, s.tilt_cdeg);
   writeI16(out + 18, s.pitch_cdeg);
   writeI16(out + 20, s.roll_cdeg);
-  writeI16(out + 22, s.heading_cdeg);
+  writeU16(out + 22, s.heading_cdeg);
   out[24] = s.sats;
   out[25] = s.flags;
   out[26] = s.gps_h;
@@ -61,7 +61,7 @@ static bool decodeSample(const uint8_t* in, HabSample& s) {
   s.tilt_cdeg    = readI16(in + 16);
   s.pitch_cdeg   = readI16(in + 18);
   s.roll_cdeg    = readI16(in + 20);
-  s.heading_cdeg = readI16(in + 22);
+  s.heading_cdeg = readU16(in + 22);
   s.sats         = in[24];
   s.flags        = in[25];
   s.gps_h        = in[26];

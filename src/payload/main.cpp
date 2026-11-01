@@ -29,6 +29,9 @@ static float    g_pingSnr = 0;
 static uint32_t g_pingMs = 0;
 
 static volatile bool g_rxFlag = false;
+static bool g_oledOn = true;
+
+static void updateOled();
 
 static void IRAM_ATTR onRadioRx() { g_rxFlag = true; }
 
@@ -37,11 +40,43 @@ static void armReceive() {
   radio.startReceive();
 }
 
+// Blank panel only (SSD1306 DISPLAYOFF) — do not cut Vext (sensors share that rail).
+static void setOledPower(bool on) {
+  g_oledOn = on;
+  display.ssd1306_command(on ? SSD1306_DISPLAYON : SSD1306_DISPLAYOFF);
+  Serial.printf("[payload] OLED %s\n", on ? "on" : "off");
+}
+
+static void pollPrgButton() {
+  static bool last = true;  // pulled up, idle HIGH
+  static uint32_t lastChange = 0;
+  const bool now = digitalRead(PIN_PRG_BTN) == HIGH;
+  if (now == last) {
+    return;
+  }
+  if ((millis() - lastChange) < 40) {
+    return;
+  }
+  lastChange = millis();
+  last = now;
+  if (!now) {  // falling edge → pressed (active LOW)
+    const bool turnOn = !g_oledOn;
+    setOledPower(turnOn);
+    if (turnOn) {
+      updateOled();
+    }
+  }
+}
+
 static void updateOled() {
+  if (!g_oledOn) {
+    return;
+  }
   display.clearDisplay();
   uint8_t row = 0;
   habOledRow(display, row++);
   display.print(F("PAYLOAD"));
+  habOledBatteryTopRight(display);
   habOledRow(display, row++);
   display.printf("SF%d %ddBm", LORA_SF, LORA_TX_POWER_DBM);
   habOledRow(display, row++);
@@ -198,6 +233,7 @@ void setup() {
   if (sens.sd_ok) {
     Serial.printf("[payload] Logging session %s\n", habSensorsSessionDir());
   }
+  pinMode(PIN_PRG_BTN, INPUT_PULLUP);
   updateOled();
   habSampleClear(g_latest);
 
@@ -205,11 +241,13 @@ void setup() {
   g_lastSampleMs = millis();
   g_lastTelemMs  = millis();
   Serial.println(F("[payload] Running (1 Hz sample + TELEM)"));
+  Serial.println(F("[payload] PRG button toggles OLED on/off"));
 }
 
 void loop() {
   habSensorsPollGps();
   serviceRx();
+  pollPrgButton();
 
   const uint32_t now = millis();
 

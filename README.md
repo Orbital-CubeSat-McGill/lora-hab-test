@@ -40,7 +40,7 @@ Onboard LoRa / OLED are already connected. External wiring only ([`include/pins.
 | Neo-6M | TX / RX | GPIO 47 / 48 (ESP RX ← GPS TX, ESP TX → GPS RX) |
 
 External I2C is on the pin headers (41/42). Onboard OLED stays on 17/18 (not broken out).  
-I2C addresses: MPU6050 `0x68`, QMC5883P `0x2C`, OLED `0x3C`. Ground node needs no external modules.
+I2C addresses: MPU6050 `0x98`, QMC5883P `0x2C`, OLED `0x3C`. Ground node needs no external modules.
 
 Missing IMU/mag/SD → warn and continue; only radio init is fatal.
 

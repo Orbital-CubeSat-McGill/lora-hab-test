@@ -177,6 +177,31 @@ HabSensorStatus habSensorsBegin() {
   }
   Serial.println();
 
+  // --- IMU WHO_AM_I (reg 0x75): genuine 0x68, common clones 0x98 ---
+  auto readWhoAmI = [](uint8_t addr) -> int {
+    Wire1.beginTransmission(addr);
+    Wire1.write(0x75);
+    if (Wire1.endTransmission(false) != 0) {
+      return -1;
+    }
+    if (Wire1.requestFrom((int)addr, 1) != 1) {
+      return -2;
+    }
+    return (int)Wire1.read();
+  };
+  const int who68 = readWhoAmI(0x68);
+  const int who69 = readWhoAmI(0x69);
+  if (who68 >= 0) {
+    Serial.printf("[sensors] MPU WHO_AM_I @0x68 = 0x%02X\n", who68);
+  } else {
+    Serial.printf("[sensors] MPU WHO_AM_I @0x68 fail (%d)\n", who68);
+  }
+  if (who69 >= 0) {
+    Serial.printf("[sensors] MPU WHO_AM_I @0x69 = 0x%02X\n", who69);
+  } else {
+    Serial.printf("[sensors] MPU WHO_AM_I @0x69 fail (%d)\n", who69);
+  }
+
   // --- IMU (AD0 low → 0x68, AD0 high → 0x69) ---
   bool imu = mpu.begin(I2C_ADDR_MPU6050, &Wire1);
   if (!imu) {
@@ -186,15 +211,39 @@ HabSensorStatus habSensorsBegin() {
     }
   }
   if (imu) {
+    // Clones (WHO_AM_I=0x98) often remain in sleep after Adafruit begin/reset
+    // (PWR_MGMT_1 bit6). Accel then reads 0 → OLED "imu n/a".
+    mpu.enableSleep(false);
     mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
     mpu.setGyroRange(MPU6050_RANGE_500_DEG);
     mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
+
+    // Wake again after range writes; verify PWR_MGMT_1 sleep bit cleared.
+    for (int i = 0; i < 3; i++) {
+      Wire1.beginTransmission(0x68);
+      Wire1.write(0x6B);
+      Wire1.write(0x00);  // clear sleep
+      Wire1.endTransmission();
+      delay(10);
+      Wire1.beginTransmission(0x68);
+      Wire1.write(0x6B);
+      Wire1.endTransmission(false);
+      Wire1.requestFrom(0x68, 1);
+      const int pwr = Wire1.available() ? Wire1.read() : -1;
+      Serial.printf("[sensors] MPU PWR_MGMT_1 after wake=%d -> 0x%02X\n", i,
+                    pwr < 0 ? 0xff : pwr);
+      if (pwr >= 0 && (pwr & 0x40) == 0) {
+        break;
+      }
+    }
+    delay(50);
+
     g_status.imu_ok = true;
     Serial.println(F("[sensors] MPU6050 OK"));
   } else {
     Serial.println(
         F("[sensors] WARN: MPU6050 missing — check SDA=41 SCL=42 GND; "
-          "swap SDA/SCL if scan empty"));
+          "swap SDA/SCL if scan empty; WHO_AM_I must be 0x68 or 0x98"));
   }
 
   // --- Magnetometer (optional) ---
@@ -255,6 +304,30 @@ void habSensorsReadSample(HabSample& out, char* gpsTimeBuf, size_t gpsTimeCap) {
       const float ay = a.acceleration.y;
       const float az = a.acceleration.z;
       const float norm = sqrtf(ax * ax + ay * ay + az * az);
+      static uint8_t imu_dbg = 0;
+      if (imu_dbg < 5) {
+        imu_dbg++;
+        Wire1.beginTransmission(0x68);
+        Wire1.write(0x6B);
+        Wire1.endTransmission(false);
+        Wire1.requestFrom(0x68, 1);
+        const int pwr = Wire1.available() ? Wire1.read() : -1;
+        Wire1.beginTransmission(0x68);
+        Wire1.write(0x3B);
+        Wire1.endTransmission(false);
+        Wire1.requestFrom(0x68, 6);
+        int16_t rx = 0, ry = 0, rz = 0;
+        if (Wire1.available() >= 6) {
+          rx = (int16_t)((Wire1.read() << 8) | Wire1.read());
+          ry = (int16_t)((Wire1.read() << 8) | Wire1.read());
+          rz = (int16_t)((Wire1.read() << 8) | Wire1.read());
+        }
+        Serial.printf(
+            "[sensors] IMU sample ax=%.3f ay=%.3f az=%.3f norm=%.3f "
+            "PWR=0x%02X raw=%d,%d,%d\n",
+            ax, ay, az, norm, pwr < 0 ? 0xff : pwr, (int)rx, (int)ry,
+            (int)rz);
+      }
       if (norm > 0.1f) {
         float tilt = rad2deg(acosf(constrain(fabsf(az) / norm, -1.0f, 1.0f)));
         float pitch = rad2deg(atan2f(-ax, sqrtf(ay * ay + az * az)));
@@ -271,7 +344,7 @@ void habSensorsReadSample(HabSample& out, char* gpsTimeBuf, size_t gpsTimeCap) {
   if (g_status.mag_ok) {
     float heading = 0;
     if (mag.readHeadingDeg(heading)) {
-      out.heading_cdeg = (int16_t)lroundf(heading * 100.0f);
+      out.heading_cdeg = (uint16_t)lroundf(heading * 100.0f);
       out.flags |= HAB_FLAG_MAG_OK;
     }
   }

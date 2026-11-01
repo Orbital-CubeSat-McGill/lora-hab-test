@@ -30,7 +30,7 @@ struct HabSample {
   int16_t  tilt_cdeg;   // centi-degrees (0.01°)
   int16_t  pitch_cdeg;
   int16_t  roll_cdeg;
-  int16_t  heading_cdeg;
+  uint16_t heading_cdeg;  // 0–36000 centi-deg; uint16 so 360° fits
   uint8_t  sats;
   uint8_t  flags;       // HabFlags
   uint8_t  gps_h;       // 0–23, or 0xFF if GPS time invalid

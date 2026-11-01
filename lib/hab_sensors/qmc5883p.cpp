@@ -82,8 +82,8 @@ bool Qmc5883P::readHeadingDeg(float& heading_deg) {
   if (!readGauss(x, y, z)) {
     return false;
   }
-  float h = atan2f(y, x) * 180.0f / PI;
-  if (h < 0) {
+  float h = atan2f(-y,-x) * 180.0f / PI;
+  while (h < 0) {
     h += 360.0f;
   }
   heading_deg = h;
