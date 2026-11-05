@@ -17,16 +17,15 @@ pio run -e ground -t upload
 uv run tools/serial_logger.py <port>
 ```
 
-Or `pio device monitor -e ground -b 115200` and type `PING`.
+Or `pio device monitor -e ground -b 115200` and type `PING`, but this will not log. 
 
 ## Radio knobs
 
-In `radio_config.h`: `LORA_FREQUENCY_HZ`, `LORA_SF`, `LORA_BW_KHZ`, `LORA_CR`, `LORA_TX_POWER_DBM`  
-(or presets `LORA_PRESET_SF7_22` / `SF10_22` / `SF12_14`).
+In `radio_config.h`: `LORA_FREQUENCY_HZ`, `LORA_SF`, `LORA_BW_KHZ`, `LORA_CR`, `LORA_TX_POWER_DBM.` Or select a preset by uncommenting it (eg `LORA_PRESET_SF10_22`)
 
-## Wiring (payload ↔ modules)
+## Wiring for external modules
 
-Onboard LoRa / OLED are already connected on the Heltec. External wiring only (`[include/pins.h](include/pins.h)`):
+Onboard LoRa / OLED are already connected on the Heltec. External wiring only, defined in [include/pins.h.](include/pins.h) Reference [Heltec V3 pinout](media/heltecv3-pinout.png)for pinout.
 
 
 | Module   | Module pin             | Heltec                                          |
@@ -41,10 +40,10 @@ Onboard LoRa / OLED are already connected on the Heltec. External wiring only (`
 | Neo-6M   | TX / RX                | GPIO 47 / 48 (ESP RX ← GPS TX, ESP TX → GPS RX) |
 
 
-External I2C is on the pin headers (41/42). Onboard OLED stays on 17/18 (not broken out).  
+External I2C is on the pin headers (41/42). Onboard OLED stays on 17/18, which are not broken out.  
 I2C addresses: MPU6050 `0x98`, QMC5883P `0x2C`, OLED `0x3C`. Ground node needs no external modules.
 
-Missing IMU/mag/SD → warn and continue; only radio init is fatal.
+Missing IMU/magnetometer/SD/GPS modules are handled at run-time. A warning will be displayed and csv fields will be empty. Only radio initialization is fatal. Always have an antenna connected before transmitting. 
 
 ## Libraries
 
@@ -55,11 +54,11 @@ Firmware (`[platformio.ini](platformio.ini)`):
 - **Adafruit SSD1306** (+ GFX) — OLED
 - **Adafruit MPU6050** — IMU
 
-Host: **pyserial** (USB logger via [uv](https://docs.astral.sh/uv/)); **Leaflet** (live map to visualize gps coordinates).
+
 
 ## Logging & matching
 
-OTA `ver=3`: TELEM/ACK carry sample + `session_id`; PING is header-only. A new payload folder is created each flight (power cycle). A new `logs/` folder is created every time `tools/serial_logger.py` is run. 
+OTA `ver=3`: TELEM/ACK carry transmission number (`seq`) + `session_id`; PING is header-only. A new payload folder is created each flight (power cycle). A new `logs/` folder is created every time `tools/serial_logger.py` is run. 
 
 
 | Where      | Folder                           | Files                                              |
@@ -75,9 +74,11 @@ Match runs by the shared `session_id` suffix (also a CSV column). Join rows on `
 - Ground `flight.csv`: TELEM + downlink RSSI/SNR + `gnd_lat/lon/alt`
 - Ground `ping.csv`: `acked=1|0` (5s timeout ⇒ no ACK), Round-Trip Time (RTT), downlink RF
 
+
+
 ### Serial logger script & live map
 
-Logs ground USB to a new `logs/` folder and (by default) opens a Leaflet map at `http://127.0.0.1:8765/`. Type `PING` + Enter in the logger terminal, or press **PRG** on the ground board, for a manual ping anytime.
+Logs ground USB to a new `logs/` folder and (by default) opens a Leaflet map at `http://127.0.0.1:8765/`. Type `PING` + Enter in the logger terminal, or press **PRG** on the ground board for a manual ping.
 
 ```bash
 uv run tools/serial_logger.py [port] [log_dir] [flags…]
@@ -97,16 +98,3 @@ uv run tools/serial_logger.py [port] [log_dir] [flags…]
 
 
 Example: `uv run tools/serial_logger.py /dev/ttyUSB0 --lat 45.5048 --lon -73.5772 --alt 40 --ping-interval 10`
-
-## Bench check
-
-1. Same `radio_config.h` + antennas on both; flash both.
-2. Logger (or serial) on ground → TELEM ~1 Hz with RSSI/SNR.
-3. PRG / `PING` → ACK + RTT (or `acked=0`).
-4. Payload SD folder grows; same `session_id` as laptop logs folder.
-
-```
-include/pins.h  radio_config.h
-lib/hab_*   src/payload/  src/ground/  tools/serial_logger.py
-```
-
