@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HAB live track</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
+    #map { height: 100%; width: 100%; }
+    #panel {
+      position: absolute; z-index: 1000; top: 10px; left: 10px;
+      background: rgba(255,255,255,0.92); padding: 10px 12px;
+      border-radius: 6px; min-width: 200px; font-size: 13px; line-height: 1.45;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.25);
+    }
+    #panel h1 { margin: 0 0 6px; font-size: 14px; }
+    #panel .muted { color: #666; }
+  </style>
+</head>
+<body>
+  <div id="panel">
+    <h1>Payload</h1>
+    <div id="telem" class="muted">waiting for FLIGHT…</div>
+  </div>
+  <div id="map"></div>
+  <script>
+    const map = L.map("map").setView([20, 0], 2);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap",
+    }).addTo(map);
+
+    let payloadMarker = null;
+    let groundMarker = null;
+    let trailLine = L.polyline([], { color: "#c0392b", weight: 3 }).addTo(map);
+    let fitted = false;
+
+    function fmt(v, digits) {
+      if (v === null || v === undefined || v === "") return "—";
+      if (typeof v === "number") return v.toFixed(digits);
+      return String(v);
+    }
+
+    function apply(state) {
+      const t = state.telem;
+      if (t) {
+        document.getElementById("telem").innerHTML =
+          `lat ${fmt(t.lat, 6)}<br>` +
+          `lon ${fmt(t.lon, 6)}<br>` +
+          `alt ${fmt(t.alt_m, 1)} m<br>` +
+          `sats ${fmt(t.sats, 0)} · gps_ok ${t.gps_ok ?? "—"}<br>` +
+          `rssi ${fmt(t.rssi_dbm, 1)} dBm · snr ${fmt(t.snr_db, 1)} dB<br>` +
+          `tilt ${fmt(t.tilt_deg, 1)}° · hdg ${fmt(t.heading_deg, 1)}°<br>` +
+          `seq ${fmt(t.seq, 0)} · sid ${t.session_id || "—"}<br>` +
+          `<span class="muted">${t.rx_utc || ""}</span>`;
+      }
+
+      if (state.gnd && state.gnd.lat != null && state.gnd.lon != null) {
+        const g = [state.gnd.lat, state.gnd.lon];
+        if (!groundMarker) {
+          groundMarker = L.circleMarker(g, {
+            radius: 7, color: "#2980b9", fillColor: "#3498db", fillOpacity: 0.9,
+          }).addTo(map).bindTooltip("ground");
+        } else {
+          groundMarker.setLatLng(g);
+        }
+      }
+
+      const trail = (state.trail || []).map((p) => [p[0], p[1]]);
+      trailLine.setLatLngs(trail);
+
+      if (t && t.lat != null && t.lon != null) {
+        const ll = [t.lat, t.lon];
+        if (!payloadMarker) {
+          payloadMarker = L.marker(ll).addTo(map).bindTooltip("payload");
+        } else {
+          payloadMarker.setLatLng(ll);
+        }
+        if (!fitted) {
+          const pts = trail.length ? trail.slice() : [ll];
+          if (state.gnd && state.gnd.lat != null) pts.push([state.gnd.lat, state.gnd.lon]);
+          map.fitBounds(L.latLngBounds(pts).pad(0.3));
+          fitted = true;
+        } else {
+          map.panTo(ll, { animate: true, duration: 0.4 });
+        }
+      }
+    }
+
+    async function tick() {
+      try {
+        const r = await fetch("/api/state");
+        if (r.ok) apply(await r.json());
+      } catch (_) {}
+    }
+    tick();
+    setInterval(tick, 1000);
+  </script>
+</body>
+</html>

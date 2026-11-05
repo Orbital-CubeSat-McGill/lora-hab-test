@@ -9,13 +9,12 @@
 
 // Named preset (optional). Uncomment ONE, or leave all commented and set knobs
 // below manually.
-// #define LORA_PRESET_SF7_22
-// #define LORA_PRESET_SF10_22
+#define LORA_PRESET_SF10_22
 // #define LORA_PRESET_SF12_14
 
-#if defined(LORA_PRESET_SF7_22)
+#if defined(LORA_PRESET_SF10_22)
   #define LORA_FREQUENCY_HZ   915000000UL
-  #define LORA_SF             7
+  #define LORA_SF             10
   #define LORA_BW_KHZ         125.0f
   #define LORA_CR             5          // 4/5
   #define LORA_TX_POWER_DBM   22
@@ -26,7 +25,7 @@
   #define LORA_CR             5
   #define LORA_TX_POWER_DBM   14
 #else
-  // Default / LORA_PRESET_SF10_22 — starting link-budget point
+  // Change these to adjust PHY settings. 
   #ifndef LORA_FREQUENCY_HZ
     #define LORA_FREQUENCY_HZ 915000000UL   // Hz  (Canada 902–928 MHz ISM)
   #endif
