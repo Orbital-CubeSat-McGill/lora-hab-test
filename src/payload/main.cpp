@@ -76,7 +76,6 @@ static void updateOled() {
   uint8_t row = 0;
   habOledRow(display, row++);
   display.print(F("PAYLOAD"));
-  habOledBatteryTopRight(display);
   habOledRow(display, row++);
   display.printf("SF%d %ddBm", LORA_SF, LORA_TX_POWER_DBM);
   habOledRow(display, row++);

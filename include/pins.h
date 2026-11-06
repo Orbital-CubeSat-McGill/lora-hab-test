@@ -36,8 +36,6 @@ static const int PIN_GPS_TX = 48;  // ESP TX -> GPS RX
 // --- Board controls ---
 static const int PIN_PRG_BTN   = 0;   // PRG / BOOT button (active LOW)
 static const int PIN_VEXT      = 36;  // peripheral power, active LOW
-static const int PIN_VBAT      = 1;   // ADC1_CH0 — LiPo via divider
-static const int PIN_ADC_CTRL  = 37;  // enables VBAT divider (polarity varies by rev)
 
 // I2C addresses
 static const uint8_t I2C_ADDR_OLED    = 0x3C;
