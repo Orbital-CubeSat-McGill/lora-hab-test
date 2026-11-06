@@ -37,6 +37,41 @@ static void pollGpsBytes() {
   }
 }
 
+// UBX binary frame → Neo-6M (needs Heltec TX → GPS RX).
+static void gpsSendUbx(uint8_t cls, uint8_t id, const uint8_t* payload,
+                       uint16_t len) {
+  uint8_t ckA = 0;
+  uint8_t ckB = 0;
+
+  GpsSerial.write((uint8_t)0xB5);
+  GpsSerial.write((uint8_t)0x62);
+
+  const uint8_t hdr[] = {cls, id, (uint8_t)(len & 0xFF), (uint8_t)(len >> 8)};
+  for (uint8_t b : hdr) {
+    GpsSerial.write(b);
+    ckA = (uint8_t)(ckA + b);
+    ckB = (uint8_t)(ckB + ckA);
+  }
+  for (uint16_t i = 0; i < len; ++i) {
+    GpsSerial.write(payload[i]);
+    ckA = (uint8_t)(ckA + payload[i]);
+    ckB = (uint8_t)(ckB + ckA);
+  }
+  GpsSerial.write(ckA);
+  GpsSerial.write(ckB);
+}
+
+// CFG-NAV5: dynModel=6 (Airborne <1g). Re-sent every boot (no flash save).
+static void gpsSetAirborneMode() {
+  uint8_t nav5[36] = {};
+  nav5[0] = 0x01;  // mask: apply dynModel only
+  nav5[1] = 0x00;
+  nav5[2] = 6;     // Airborne <1g
+  gpsSendUbx(0x06, 0x24, nav5, sizeof(nav5));
+  GpsSerial.flush();
+  Serial.println(F("[sensors] GPS dynModel=Airborne<1g"));
+}
+
 // Wait briefly for a GPS wall-clock; HAB modules often get time before a fix.
 static bool waitForGpsTimestamp(uint32_t timeout_ms) {
   const uint32_t start = millis();
@@ -258,6 +293,7 @@ HabSensorStatus habSensorsBegin() {
   GpsSerial.begin(9600, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
   g_status.gps_ok = true;  // UART opened; fix_ok tracked per sample
   Serial.println(F("[sensors] GPS UART started (9600)"));
+  gpsSetAirborneMode();
 
   // --- SD (second SPI): new timestamped folder each boot ---
   SdSpi.begin(PIN_SD_SCK, PIN_SD_MISO, PIN_SD_MOSI, PIN_SD_CS);
