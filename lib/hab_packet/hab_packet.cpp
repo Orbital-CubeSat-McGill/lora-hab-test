@@ -115,6 +115,7 @@ size_t habPacketEncode(const HabPacket& pkt, uint8_t* out, size_t outCap) {
   out[2] = pkt.type;
   writeU16(out + 3, pkt.seq);
   writeU32(out + 5, pkt.session_id);
+  memcpy(out + 9, HAB_CALLSIGN, HAB_CALLSIGN_LEN);
 
   if (withSample) {
     encodeSample(pkt.sample, out + HAB_PKT_HEADER_LEN);
@@ -133,6 +134,8 @@ bool habPacketDecode(const uint8_t* data, size_t len, HabPacket& out) {
   out.type       = data[2];
   out.seq        = readU16(data + 3);
   out.session_id = readU32(data + 5);
+  memcpy(out.callsign, data + 9, HAB_CALLSIGN_LEN);
+  out.callsign[HAB_CALLSIGN_LEN] = '\0';
   habSampleClear(out.sample);
 
   if (out.type == HAB_PKT_PING) {
@@ -165,8 +168,8 @@ void habPrettyPrintTelem(Print& out, const HabPacket& pkt, float rssi,
   habSampleFormatGpsTime(s, gpsTime, sizeof(gpsTime));
 
   out.println(F("---- TELEM ----"));
-  out.printf("seq=%u  sid=%08lX  RSSI=%.1f dBm  SNR=%.1f dB\n", pkt.seq,
-             (unsigned long)pkt.session_id, rssi, snr);
+  out.printf("call=%s  seq=%u  sid=%08lX  RSSI=%.1f dBm  SNR=%.1f dB\n",
+             pkt.callsign, pkt.seq, (unsigned long)pkt.session_id, rssi, snr);
   out.printf("ts_ms=%lu  gps_time=%s  sats=%u  flags=0x%02X\n",
              (unsigned long)s.ts_ms, gpsTime[0] ? gpsTime : "n/a", s.sats,
              s.flags);
@@ -196,8 +199,10 @@ void habPrettyPrintAck(Print& out, const HabPacket& pkt, float rssi, float snr,
   habSampleFormatGpsTime(s, gpsTime, sizeof(gpsTime));
 
   out.println(F("---- ACK ------"));
-  out.printf("seq=%u  sid=%08lX  acked=1  RTT=%ld ms  RSSI=%.1f  SNR=%.1f\n",
-             pkt.seq, (unsigned long)pkt.session_id, (long)rtt_ms, rssi, snr);
+  out.printf(
+      "call=%s  seq=%u  sid=%08lX  acked=1  RTT=%ld ms  RSSI=%.1f  SNR=%.1f\n",
+      pkt.callsign, pkt.seq, (unsigned long)pkt.session_id, (long)rtt_ms, rssi,
+      snr);
   out.printf("ts_ms=%lu  gps_time=%s\n", (unsigned long)s.ts_ms,
              gpsTime[0] ? gpsTime : "n/a");
   if (s.flags & HAB_FLAG_GPS_OK) {
@@ -219,7 +224,7 @@ void habPrettyPrintAck(Print& out, const HabPacket& pkt, float rssi, float snr,
 
 void habPrettyPrintPingTimeout(Print& out, uint16_t seq, uint32_t waited_ms) {
   out.println(F("---- PING NO-ACK ----"));
-  out.printf("seq=%u  acked=0  waited=%lu ms\n", seq,
+  out.printf("call=%s  seq=%u  acked=0  waited=%lu ms\n", HAB_CALLSIGN, seq,
              (unsigned long)waited_ms);
   out.println(F("----------------------"));
 }

@@ -58,7 +58,7 @@ Firmware (`[platformio.ini](platformio.ini)`):
 
 ## Logging & matching
 
-OTA `ver=3`: TELEM/ACK carry transmission number (`seq`) + `session_id`; PING is header-only. A new payload folder is created each flight (power cycle). A new `logs/` folder is created every time `tools/serial_logger.py` is run. 
+OTA `ver=4`: every packet header carries callsign `VA2ZMC`; TELEM/ACK also carry `seq` + `session_id` + sample; PING is header-only. A new payload folder is created each flight (power cycle). A new `logs/` folder is created every time `tools/serial_logger.py` is run. 
 
 
 | Where      | Folder                           | Files                                              |
