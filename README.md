@@ -5,7 +5,7 @@ Two **Heltec WiFi LoRa 32 V3** firmwares (PlatformIO):
 - **Payload** — 1 Hz SD log + 1 Hz LoRa TELEM; ACKs ground PINGs
 - **Ground** — receives TELEM, OLED status, USB CSV; PING via PRG or serial `PING`
 
-Default PHY (edit [`include/radio_config.h`](include/radio_config.h), reflash **both**): **915 MHz, SF10, 125 kHz, CR 4/5, 22 dBm**.
+Default PHY (edit [`include/radio_config.h`](include/radio_config.h), reflash **both**): **916 MHz, SF10, 125 kHz, CR 4/5, 22 dBm**.
 
 ## Quick start
 

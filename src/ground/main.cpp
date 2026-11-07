@@ -1,5 +1,5 @@
-#include <Arduino.h>
 #include <Adafruit_SSD1306.h>
+#include <Arduino.h>
 #include <RadioLib.h>
 #include <Wire.h>
 
@@ -9,30 +9,35 @@
 #include "pins.h"
 #include "radio_config.h"
 
-static SX1262 radio = new Module(PIN_LORA_NSS, PIN_LORA_DIO1, PIN_LORA_RST,
-                                 PIN_LORA_BUSY);
+static SX1262 radio =
+    new Module(PIN_LORA_NSS, PIN_LORA_DIO1, PIN_LORA_RST, PIN_LORA_BUSY);
 static Adafruit_SSD1306 display(128, 64, &Wire, -1);
 
 static volatile bool g_rxFlag = false;
 
 static uint16_t g_pingSeq = 0;
-static bool     g_pingWaiting = false;
+static bool g_pingWaiting = false;
 static uint32_t g_pingSentMs = 0;
 static uint16_t g_pingExpectSeq = 0;
 
 // Last completed ping result for OLED (idle until first PING).
-enum PingUi : uint8_t { PING_UI_NONE = 0, PING_UI_WAIT, PING_UI_ACK, PING_UI_NOACK };
-static PingUi   g_pingUi = PING_UI_NONE;
+enum PingUi : uint8_t {
+  PING_UI_NONE = 0,
+  PING_UI_WAIT,
+  PING_UI_ACK,
+  PING_UI_NOACK
+};
+static PingUi g_pingUi = PING_UI_NONE;
 static uint16_t g_pingUiSeq = 0;
-static int32_t  g_pingUiRttMs = -1;
+static int32_t g_pingUiRttMs = -1;
 
-static float    g_lastRssi = 0;
-static float    g_lastSnr  = 0;
-static uint16_t g_lastSeq  = 0;
-static int32_t  g_lastAltMm = 0;
-static uint32_t g_lastRxMs  = 0;
-static bool     g_havePacket = false;
-static uint32_t g_lastSessionId = 0;  // from TELEM/ACK; used on ping timeout CSV
+static float g_lastRssi = 0;
+static float g_lastSnr = 0;
+static uint16_t g_lastSeq = 0;
+static int32_t g_lastAltMm = 0;
+static uint32_t g_lastRxMs = 0;
+static bool g_havePacket = false;
+static uint32_t g_lastSessionId = 0; // from TELEM/ACK; used on ping timeout CSV
 
 static String g_serialLine;
 
@@ -43,7 +48,7 @@ static void armReceive() {
   radio.startReceive();
 }
 
-static void utcNow(char* buf, size_t cap) {
+static void utcNow(char *buf, size_t cap) {
   // No RTC: use millis-based placeholder; host logger stamps wall clock.
   snprintf(buf, cap, "t+%lu", (unsigned long)millis());
 }
@@ -74,31 +79,31 @@ static void updateOled() {
 
   habOledRow(display, row++);
   switch (g_pingUi) {
-    case PING_UI_WAIT:
-      display.printf("PING #%u ...", g_pingUiSeq);
-      break;
-    case PING_UI_ACK:
-      if (g_pingUiRttMs >= 0) {
-        display.printf("ACK #%u %ldms", g_pingUiSeq, (long)g_pingUiRttMs);
-      } else {
-        display.printf("ACK #%u", g_pingUiSeq);
-      }
-      break;
-    case PING_UI_NOACK:
-      display.printf("NO-ACK #%u", g_pingUiSeq);
-      break;
-    default:
-      display.print(F("ping: --"));
-      break;
+  case PING_UI_WAIT:
+    display.printf("PING #%u ...", g_pingUiSeq);
+    break;
+  case PING_UI_ACK:
+    if (g_pingUiRttMs >= 0) {
+      display.printf("ACK #%u %ldms", g_pingUiSeq, (long)g_pingUiRttMs);
+    } else {
+      display.printf("ACK #%u", g_pingUiSeq);
+    }
+    break;
+  case PING_UI_NOACK:
+    display.printf("NO-ACK #%u", g_pingUiSeq);
+    break;
+  default:
+    display.print(F("ping: --"));
+    break;
   }
   display.display();
 }
 
 static void sendPing() {
   HabPacket pkt = {};
-  pkt.type       = HAB_PKT_PING;
-  pkt.seq        = ++g_pingSeq;
-  pkt.session_id = 0;  // payload fills session_id on ACK
+  pkt.type = HAB_PKT_PING;
+  pkt.seq = ++g_pingSeq;
+  pkt.session_id = 0; // payload fills session_id on ACK
   habSampleClear(pkt.sample);
 
   uint8_t buf[HAB_PKT_MAX_LEN];
@@ -111,22 +116,22 @@ static void sendPing() {
     return;
   }
 
-  g_pingWaiting   = true;
-  g_pingSentMs    = millis();
+  g_pingWaiting = true;
+  g_pingSentMs = millis();
   g_pingExpectSeq = pkt.seq;
-  g_pingUi        = PING_UI_WAIT;
-  g_pingUiSeq     = pkt.seq;
-  g_pingUiRttMs   = -1;
+  g_pingUi = PING_UI_WAIT;
+  g_pingUiSeq = pkt.seq;
+  g_pingUiRttMs = -1;
   Serial.printf("[ground] PING seq=%u\n", pkt.seq);
   updateOled();
 }
 
-static void onDecoded(const HabPacket& pkt, float rssi, float snr) {
-  g_lastRssi   = rssi;
-  g_lastSnr    = snr;
-  g_lastSeq    = pkt.seq;
-  g_lastAltMm  = pkt.sample.alt_mm;
-  g_lastRxMs   = millis();
+static void onDecoded(const HabPacket &pkt, float rssi, float snr) {
+  g_lastRssi = rssi;
+  g_lastSnr = snr;
+  g_lastSeq = pkt.seq;
+  g_lastAltMm = pkt.sample.alt_mm;
+  g_lastRxMs = millis();
   g_havePacket = true;
   if (pkt.session_id != 0) {
     g_lastSessionId = pkt.session_id;
@@ -143,8 +148,8 @@ static void onDecoded(const HabPacket& pkt, float rssi, float snr) {
     if (g_pingWaiting && pkt.seq == g_pingExpectSeq) {
       rtt = (int32_t)(millis() - g_pingSentMs);
       g_pingWaiting = false;
-      g_pingUi      = PING_UI_ACK;
-      g_pingUiSeq   = pkt.seq;
+      g_pingUi = PING_UI_ACK;
+      g_pingUiSeq = pkt.seq;
       g_pingUiRttMs = rtt;
     }
     habPrettyPrintAck(Serial, pkt, rssi, snr, rtt);
@@ -165,7 +170,7 @@ static void serviceRx() {
   if (state == RADIOLIB_ERR_NONE) {
     size_t len = radio.getPacketLength();
     float rssi = radio.getRSSI();
-    float snr  = radio.getSNR();
+    float snr = radio.getSNR();
     HabPacket pkt;
     if (habPacketDecode(buf, len, pkt)) {
       onDecoded(pkt, rssi, snr);
@@ -177,7 +182,7 @@ static void serviceRx() {
 }
 
 static void pollButton() {
-  static bool last = true;  // pulled up, idle HIGH
+  static bool last = true; // pulled up, idle HIGH
   static uint32_t lastChange = 0;
   bool now = digitalRead(PIN_PRG_BTN);
   if (now != last && (millis() - lastChange) > 40) {
@@ -209,7 +214,8 @@ void setup() {
   delay(500);
   Serial.println(F("\n=== HAB Ground ==="));
   Serial.println(F("Laptop test: log USB serial with:"));
-  Serial.println(F("  uv run tools/serial_logger.py /dev/ttyUSB0 --lat LAT --lon LON"));
+  Serial.println(
+      F("  uv run tools/serial_logger.py /dev/ttyUSB0 --lat LAT --lon LON"));
   Serial.println(F("Files: logs/<utc>_<phy>_<session_id>/ …"));
   habRadioPrintConfig(Serial);
   habCsvHeaderGroundFlight(Serial);
@@ -256,8 +262,8 @@ void loop() {
     const uint16_t seq = g_pingExpectSeq;
     const uint32_t waited = millis() - g_pingSentMs;
     g_pingWaiting = false;
-    g_pingUi      = PING_UI_NOACK;
-    g_pingUiSeq   = seq;
+    g_pingUi = PING_UI_NOACK;
+    g_pingUiSeq = seq;
     g_pingUiRttMs = -1;
     Serial.printf("[ground] PING seq=%u NO-ACK (timeout)\n", seq);
     habPrettyPrintPingTimeout(Serial, seq, waited);
