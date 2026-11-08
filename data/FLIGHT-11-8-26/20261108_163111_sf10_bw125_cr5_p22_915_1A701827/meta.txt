@@ -1,0 +1,7 @@
+started_utc=20261108_163111Z
+port=/dev/ttyUSB0
+phy_slug=sf10_bw125_cr5_p22_915
+session_id=1A701827
+gnd_lat=45.5052858
+gnd_lon=-73.5796870
+gnd_alt_m=43.000
