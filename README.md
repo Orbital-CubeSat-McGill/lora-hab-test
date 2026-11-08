@@ -54,8 +54,6 @@ Firmware (`[platformio.ini](platformio.ini)`):
 - **Adafruit SSD1306** (+ GFX) — OLED
 - **Adafruit MPU6050** — IMU
 
-
-
 ## Logging
 
 OTA `ver=4`: every packet header carries callsign `VA2ZMC`; TELEM/ACK also carry `seq` + `session_id` + sample; PING is header-only. A new payload folder is created each flight (power cycle). A new `logs/` folder is created every time `tools/serial_logger.py` is run. 
@@ -73,8 +71,6 @@ Match runs by the shared `session_id` suffix (also a CSV column). Join rows on `
 - Payload `ping.csv`: uplink RSSI/SNR per received PING
 - Ground `flight.csv`: TELEM + downlink RSSI/SNR + `gnd_lat/lon/alt`
 - Ground `ping.csv`: `acked=1|0` (5s timeout ⇒ no ACK), Round-Trip Time (RTT), downlink RF
-
-
 
 ### Tracked fields
 
@@ -117,8 +113,8 @@ The ground station logs the following data when pinging the payload:
 - acked: `1` if ACK received, `0` on timeout
 - session_id: payload session id (from ACK; last known on timeout)
 - seq: ping sequence number
-- rtt_ms: round-trip time in ms (negative waited time on timeout)
-- rssi_dbm/snr_db: downlink RF of the ACK (empty on timeout)
+- rtt_ms: round-trip time in ms (negative waited time on 5 second timeout)
+- rssi_dbm/snr_db: downlink RF of the ACK (empty on 5 second timeout)
 - ts_ms/gps_time/lat/lon/alt_m/tilt_deg/pitch_deg/roll_deg/heading_deg/sats/gps_ok/imu_ok/mag_ok: sample from ACK (empty on timeout)
 - gnd_lat/gnd_lon/gnd_alt_m: fixed ground station coordinates
 
