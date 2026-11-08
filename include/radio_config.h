@@ -40,7 +40,7 @@
     #define LORA_CR           5             // Coding rate denominator: 5=4/5 … 8=4/8
   #endif
   #ifndef LORA_TX_POWER_DBM
-    #define LORA_TX_POWER_DBM 14            // dBm (Heltec SX1262 up to ~22)
+    #define LORA_TX_POWER_DBM 22           // dBm (Heltec SX1262 up to ~22)
   #endif
 #endif
 
