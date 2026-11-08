@@ -21,22 +21,6 @@ static uint32_t g_lastSampleMs = 0;
 static uint32_t g_lastTelemMs  = 0;
 static bool     g_sdOk = false;
 
-// Last uplink PING (shown on OLED until overwritten).
-static bool     g_pinged = false;
-static uint16_t g_pingSeq = 0;
-static float    g_pingRssi = 0;
-static float    g_pingSnr = 0;
-static uint32_t g_pingMs = 0;
-
-static volatile bool g_rxFlag = false;
-
-static void IRAM_ATTR onRadioRx() { g_rxFlag = true; }
-
-static void armReceive() {
-  g_rxFlag = false;
-  radio.startReceive();
-}
-
 static void updateOled() {
   display.clearDisplay();
   uint8_t row = 0;
@@ -54,26 +38,17 @@ static void updateOled() {
   } else {
     display.print(F("gps n/a"));
   }
-
-  if (g_pinged) {
-    const uint32_t age_s = (millis() - g_pingMs) / 1000UL;
-    habOledRow(display, row++);
-    display.printf("PINGED #%u", g_pingSeq);
-    habOledRow(display, row++);
-    display.printf("%.0f %.1f %lus", g_pingRssi, g_pingSnr, (unsigned long)age_s);
+  habOledRow(display, row++);
+  if (g_latest.flags & HAB_FLAG_IMU_OK) {
+    display.printf("tilt %.1f", g_latest.tilt_cdeg / 100.0);
   } else {
-    habOledRow(display, row++);
-    if (g_latest.flags & HAB_FLAG_IMU_OK) {
-      display.printf("tilt %.1f", g_latest.tilt_cdeg / 100.0);
-    } else {
-      display.print(F("imu n/a"));
-    }
-    habOledRow(display, row++);
-    if (g_latest.flags & HAB_FLAG_MAG_OK) {
-      display.printf("hdg %.0f", g_latest.heading_cdeg / 100.0);
-    } else {
-      display.print(F("mag n/a"));
-    }
+    display.print(F("imu n/a"));
+  }
+  habOledRow(display, row++);
+  if (g_latest.flags & HAB_FLAG_MAG_OK) {
+    display.printf("hdg %.0f", g_latest.heading_cdeg / 100.0);
+  } else {
+    display.print(F("mag n/a"));
   }
   display.display();
 }
@@ -85,7 +60,7 @@ static bool transmitPacket(const HabPacket& pkt) {
     return false;
   }
   int state = radio.transmit(buf, n);
-  armReceive();
+  radio.standby();
   if (state != RADIOLIB_ERR_NONE) {
     Serial.printf("[payload] TX err %d\n", state);
   }
@@ -107,58 +82,6 @@ static void sendTelem() {
     Serial.println(F("[payload] TELEM TX failed"));
   }
   updateOled();
-}
-
-static void handlePing(uint16_t seq, float rssi, float snr) {
-  // Fresh sample at receive time (ts_ms + gps_time go OTA in the ACK).
-  habSensorsReadSample(g_latest, g_gpsTime, sizeof(g_gpsTime));
-
-  HabPacket pkt = {};
-  pkt.type       = HAB_PKT_ACK;
-  pkt.seq        = seq;
-  pkt.session_id = habSensorsSessionId();
-  pkt.sample     = g_latest;
-
-  g_pinged   = true;
-  g_pingSeq  = seq;
-  g_pingRssi = rssi;
-  g_pingSnr  = snr;
-  g_pingMs   = millis();
-  updateOled();
-
-  // Log uplink quality of the received PING (before TX clears radio stats).
-  Serial.printf("[payload] PING seq=%u  RSSI=%.1f dBm  SNR=%.1f dB  gps=%s\n",
-                seq, rssi, snr, g_gpsTime[0] ? g_gpsTime : "n/a");
-  habSensorsLogPing(seq, rssi, snr, g_gpsTime);
-
-  if (transmitPacket(pkt)) {
-    Serial.printf("[payload] ACK seq=%u (reply to RSSI=%.1f SNR=%.1f)\n", seq,
-                  rssi, snr);
-  } else {
-    Serial.println(F("[payload] ACK TX failed"));
-  }
-  updateOled();
-}
-
-static void serviceRx() {
-  if (!g_rxFlag) {
-    return;
-  }
-  g_rxFlag = false;
-
-  uint8_t buf[HAB_PKT_MAX_LEN];
-  int state = radio.readData(buf, sizeof(buf));
-  if (state == RADIOLIB_ERR_NONE) {
-    size_t len = radio.getPacketLength();
-    float rssi = radio.getRSSI();
-    float snr  = radio.getSNR();
-    HabPacket pkt;
-    if (habPacketDecode(buf, len, pkt) && pkt.type == HAB_PKT_PING) {
-      handlePing(pkt.seq, rssi, snr);
-      return;  // handlePing re-arms RX
-    }
-  }
-  armReceive();
 }
 
 void setup() {
@@ -185,7 +108,7 @@ void setup() {
   }
   Serial.println(F("[payload] Radio OK"));
 
-  radio.setPacketReceivedAction(onRadioRx);
+  radio.standby();
 
   if (dispOk) {
     habDisplaySplash(display, "PAYLOAD", true);
@@ -201,15 +124,13 @@ void setup() {
   updateOled();
   habSampleClear(g_latest);
 
-  armReceive();
   g_lastSampleMs = millis();
   g_lastTelemMs  = millis();
-  Serial.println(F("[payload] Running (1 Hz sample + TELEM)"));
+  Serial.println(F("[payload] Running (1 Hz sample + TELEM, TX/standby)"));
 }
 
 void loop() {
   habSensorsPollGps();
-  serviceRx();
 
   const uint32_t now = millis();
 
@@ -227,14 +148,5 @@ void loop() {
   if (now - g_lastTelemMs >= HAB_TELEM_INTERVAL_MS) {
     g_lastTelemMs = now;
     sendTelem();
-  }
-
-  // Refresh "PINGED … ago" age while a ping banner is up.
-  if (g_pinged) {
-    static uint32_t lastPingOled = 0;
-    if (now - lastPingOled >= 500) {
-      lastPingOled = now;
-      updateOled();
-    }
   }
 }

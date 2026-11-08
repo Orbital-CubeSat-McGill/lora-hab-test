@@ -130,16 +130,6 @@ static bool openSessionLogs() {
   }
   habCsvHeaderPayload(g_logFile);
   g_logFile.flush();
-
-  snprintf(path, sizeof(path), "%s/ping.csv", g_sessionDir);
-  g_pingFile = SD.open(path, FILE_WRITE);
-  if (!g_pingFile) {
-    Serial.printf("[sensors] WARN: cannot open %s\n", path);
-    g_logFile.close();
-    return false;
-  }
-  g_pingFile.println(F("ts_ms,gps_time,seq,rssi_dbm,snr_db"));
-  g_pingFile.flush();
   return true;
 }
 
@@ -220,8 +210,7 @@ HabSensorStatus habSensorsBegin() {
     }
     if (createSessionDirectory() && openSessionLogs()) {
       g_status.sd_ok = true;
-      Serial.printf("[sensors] SD OK -> %s/flight.csv, %s/ping.csv\n",
-                    g_sessionDir, g_sessionDir);
+      Serial.printf("[sensors] SD OK -> %s/flight.csv\n", g_sessionDir);
     } else {
       Serial.println(F("[sensors] WARN: SD mount OK but session logs failed"));
     }

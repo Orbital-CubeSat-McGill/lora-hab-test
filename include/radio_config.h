@@ -14,13 +14,13 @@
 // #define LORA_PRESET_SF12_14
 
 #if defined(LORA_PRESET_SF7_22)
-  #define LORA_FREQUENCY_HZ   916000000UL
+  #define LORA_FREQUENCY_HZ   925000000UL
   #define LORA_SF             7
   #define LORA_BW_KHZ         125.0f
   #define LORA_CR             5          // 4/5
   #define LORA_TX_POWER_DBM   22
 #elif defined(LORA_PRESET_SF12_14)
-  #define LORA_FREQUENCY_HZ   916000000UL
+  #define LORA_FREQUENCY_HZ   925000000UL
   #define LORA_SF             12
   #define LORA_BW_KHZ         125.0f
   #define LORA_CR             5
@@ -28,7 +28,7 @@
 #else
   // Default / LORA_PRESET_SF10_22 — starting link-budget point
   #ifndef LORA_FREQUENCY_HZ
-    #define LORA_FREQUENCY_HZ 916000000UL   // Hz  (Canada 902–928 MHz ISM)
+    #define LORA_FREQUENCY_HZ 925000000UL   // Hz  (Canada 902–928 MHz ISM)
   #endif
   #ifndef LORA_SF
     #define LORA_SF           10            // Spreading factor 7–12
@@ -40,7 +40,7 @@
     #define LORA_CR           5             // Coding rate denominator: 5=4/5 … 8=4/8
   #endif
   #ifndef LORA_TX_POWER_DBM
-    #define LORA_TX_POWER_DBM 22            // dBm (Heltec SX1262 up to ~22)
+    #define LORA_TX_POWER_DBM 5            // dBm (Heltec SX1262 up to ~22)
   #endif
 #endif
 
@@ -61,12 +61,7 @@
   #define HAB_SAMPLE_INTERVAL_MS 1000UL
 #endif
 
-// Ground ping ACK wait
-#ifndef HAB_PING_TIMEOUT_MS
-  #define HAB_PING_TIMEOUT_MS 5000UL
-#endif
-
-// Compact PHY id for session folder names, e.g. "sf10_bw125_cr5_p22_915".
+// Compact PHY id for session folder names, e.g. "sf10_bw125_cr5_p22_925".
 static inline char* habRadioPhySlug(char* buf, size_t cap) {
   if (!buf || cap == 0) {
     return buf;
