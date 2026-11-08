@@ -56,7 +56,7 @@ Firmware (`[platformio.ini](platformio.ini)`):
 
 
 
-## Logging & matching
+## Logging
 
 OTA `ver=4`: every packet header carries callsign `VA2ZMC`; TELEM/ACK also carry `seq` + `session_id` + sample; PING is header-only. A new payload folder is created each flight (power cycle). A new `logs/` folder is created every time `tools/serial_logger.py` is run. 
 
@@ -75,6 +75,60 @@ Match runs by the shared `session_id` suffix (also a CSV column). Join rows on `
 - Ground `ping.csv`: `acked=1|0` (5s timeout ⇒ no ACK), Round-Trip Time (RTT), downlink RF
 
 
+
+### Tracked fields
+
+The payload logs the following data at 1 Hz:
+
+- session_id: starts a new session each power cycle
+- ts_ms: time in ms since boot
+- gps_time: sample time (from GPS)
+- seq: packet number on TELEM TX (blank on sample-only rows); restarts with a new session
+- lat/lon/alt_m: gps data
+- tilt_deg/pitch_deg/roll_deg: imu data
+- heading_deg: magnetometer data
+- sats: number of satellites gps has a fix on
+- gps_ok: gps status
+- imu_ok: imu status
+- mag_ok: mag status
+
+The payload transmits the following data at 1 Hz:
+
+- rx_utc: time when the ground station receives the packet. 
+- session_id: starts a new session each power cycle
+- ts_ms: time in ms since boot
+- gps_time: sample time (from GPS)
+- seq: packet number, restarts with a new session
+- lat/lon/alt: gps data
+- tilt_deg/pitch_deg/roll_deg: imu data
+- heading_deg: magnetometer data
+- sats: number of satellites gps has a fix on
+- gps_ok: gps status
+- imu_ok: imu status
+- mag_ok: mag status
+- rssi_dbm: RSSI of received transmission
+- snr_db: SNR of received transmission
+- gnd_lat/gnd_lon/gnd_alt_m: fixed ground station coordinates
+
+The ground station logs the following data when pinging the payload: 
+
+- rx_utc: time when the ground station logs the ping result
+- event: `ack` or `timeout`
+- acked: `1` if ACK received, `0` on timeout
+- session_id: payload session id (from ACK; last known on timeout)
+- seq: ping sequence number
+- rtt_ms: round-trip time in ms (negative waited time on timeout)
+- rssi_dbm/snr_db: downlink RF of the ACK (empty on timeout)
+- ts_ms/gps_time/lat/lon/alt_m/tilt_deg/pitch_deg/roll_deg/heading_deg/sats/gps_ok/imu_ok/mag_ok: sample from ACK (empty on timeout)
+- gnd_lat/gnd_lon/gnd_alt_m: fixed ground station coordinates
+
+The payload logs the following data when receiving a ping:
+
+- ts_ms: time in ms since boot when the PING was received
+- gps_time: sample time (from GPS) at PING receive
+- seq: ping sequence number
+- rssi_dbm: uplink RSSI of the received PING
+- snr_db: uplink SNR of the received PING
 
 ### Serial logger script & live map
 
