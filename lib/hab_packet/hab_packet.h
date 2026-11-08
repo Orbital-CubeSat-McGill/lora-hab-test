@@ -4,8 +4,12 @@
 #include <stdint.h>
 
 static const uint8_t HAB_PKT_MAGIC   = 0xA5;
-// v3: header adds session_id (payload-owned run id for folder matching).
-static const uint8_t HAB_PKT_VERSION = 3;
+// v4: header adds 6-byte ASCII callsign after session_id.
+static const uint8_t HAB_PKT_VERSION = 4;
+
+// Must be exactly 6 ASCII characters (no NUL on the wire).
+#define HAB_CALLSIGN "VA2ZMC"
+static const size_t HAB_CALLSIGN_LEN = 6;
 
 enum HabPktType : uint8_t {
   HAB_PKT_TELEM = 1,
@@ -42,16 +46,20 @@ struct HabPacket {
   uint8_t   type;
   uint16_t  seq;
   uint32_t  session_id;  // payload run id; 0 on ground→payload PING
+  char      callsign[7]; // 6 ASCII + NUL (filled on decode; encode stamps HAB_CALLSIGN)
   HabSample sample;      // meaningful for TELEM/ACK; zeroed for PING
 };
 
 static const size_t HAB_PKT_HEADER_LEN =
-    1 + 1 + 1 + 2 + 4;  // magic,ver,type,seq,session_id
+    1 + 1 + 1 + 2 + 4 + HAB_CALLSIGN_LEN;  // magic,ver,type,seq,session_id,call
 static const size_t HAB_SAMPLE_LEN =
     4 + 4 + 4 + 4 + 2 + 2 + 2 + 2 + 1 + 1 + 1 + 1 + 1;  // 29
 static const size_t HAB_PKT_TELEM_LEN = HAB_PKT_HEADER_LEN + HAB_SAMPLE_LEN;
 static const size_t HAB_PKT_PING_LEN  = HAB_PKT_HEADER_LEN;
 static const size_t HAB_PKT_MAX_LEN   = HAB_PKT_TELEM_LEN;
+
+static_assert(sizeof(HAB_CALLSIGN) - 1 == HAB_CALLSIGN_LEN,
+              "HAB_CALLSIGN must be exactly 6 characters");
 
 size_t habPacketEncode(const HabPacket& pkt, uint8_t* out, size_t outCap);
 bool   habPacketDecode(const uint8_t* data, size_t len, HabPacket& out);

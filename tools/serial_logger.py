@@ -49,14 +49,14 @@ DEFAULT_LOG_DIR = REPO_ROOT / "logs"
 RADIO_CONFIG = REPO_ROOT / "include" / "radio_config.h"
 
 FLIGHT_HEADER = (
-    "rx_utc,session_id,ts_ms,gps_time,seq,lat,lon,alt_m,tilt_deg,pitch_deg,"
-    "roll_deg,heading_deg,sats,gps_ok,imu_ok,mag_ok,rssi_dbm,snr_db,"
+    "rx_utc,session_id,callsign,ts_ms,gps_time,seq,lat,lon,alt_m,tilt_deg,"
+    "pitch_deg,roll_deg,heading_deg,sats,gps_ok,imu_ok,mag_ok,rssi_dbm,snr_db,"
     "gnd_lat,gnd_lon,gnd_alt_m\n"
 )
 PING_HEADER = (
-    "rx_utc,event,acked,session_id,seq,rtt_ms,rssi_dbm,snr_db,ts_ms,gps_time,"
-    "lat,lon,alt_m,tilt_deg,pitch_deg,roll_deg,heading_deg,sats,gps_ok,imu_ok,"
-    "mag_ok,gnd_lat,gnd_lon,gnd_alt_m\n"
+    "rx_utc,event,acked,session_id,callsign,seq,rtt_ms,rssi_dbm,snr_db,ts_ms,"
+    "gps_time,lat,lon,alt_m,tilt_deg,pitch_deg,roll_deg,heading_deg,sats,"
+    "gps_ok,imu_ok,mag_ok,gnd_lat,gnd_lon,gnd_alt_m\n"
 )
 
 

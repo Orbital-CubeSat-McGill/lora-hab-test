@@ -46,7 +46,7 @@ Missing IMU/mag/SD → warn and continue; only radio init is fatal.
 
 ## Logging & matching
 
-OTA `ver=3`: TELEM carries sample + `session_id` (uplink only).
+OTA `ver=4`: every packet header carries callsign `VA2ZMC`; TELEM also carries `seq` + `session_id` + sample (uplink only).
 
 | Where | Folder | Files |
 |-------|--------|-------|
@@ -56,7 +56,7 @@ OTA `ver=3`: TELEM carries sample + `session_id` (uplink only).
 Match runs by the shared **`session_id`** suffix (also a CSV column). Join rows on `session_id` + `seq`.
 
 - Payload `flight.csv`: sensors (+ `seq` on TELEM TX)
-- Ground `flight.csv`: TELEM + downlink RSSI/SNR + `gnd_lat/lon/alt`
+- Ground `flight.csv`: TELEM + `callsign` + downlink RSSI/SNR + `gnd_lat/lon/alt`
 
 ## Bench check
 
